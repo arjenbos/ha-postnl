@@ -120,3 +120,41 @@ class PostNLGraphql:
         result = self.call(query)
 
         return result
+
+    def shipments(self):
+        query = """
+        query {
+          trackedShipments {
+            receiverShipments {
+              ...shipment
+              __typename
+            }
+            senderShipments {
+              ...shipment
+              __typename
+            }
+            __typename
+          }
+        }
+        fragment shipment on TrackedShipmentResultType {
+          key
+          creationDateTime
+          title
+          barcode
+          delivered
+          deliveredTimeStamp
+          deliveryWindowFrom
+          deliveryWindowTo
+          deliveryWindowType
+          detailsUrl
+          shipmentType
+          deliveryAddressType
+          sourceAccountId
+          sourceDisplayName
+          __typename
+        }
+        """
+
+        result = self.call(query)
+
+        return result
