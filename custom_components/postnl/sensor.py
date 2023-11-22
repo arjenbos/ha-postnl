@@ -83,10 +83,14 @@ class PostNLDelivery(Entity):
 
             if shipment['delivered']:
                 self._attributes['delivered'].append({
+                    'name': shipment['title'],
+                    'url':  shipment['detailsUrl'],
                     'delivery_date': shipment['deliveredTimeStamp']
                 })
             else:
                 self._attributes['enroute'].append({
+                    'name': shipment['title'],
+                    'url': shipment['detailsUrl'],
                     'planned_date': shipment['deliveryWindowFrom']
                 })
 
