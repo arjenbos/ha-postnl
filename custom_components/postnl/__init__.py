@@ -8,7 +8,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.config_entry_oauth2_flow import async_get_config_entry_implementation, OAuth2Session
 
 from .api import PostNLAPI
-from .const import DOMAIN
+from .const import DOMAIN, PLATFORMS
 from .graphql import PostNLGraphql
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +28,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     if "error" in userinfo:
         raise ConfigEntryNotReady
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {}
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
