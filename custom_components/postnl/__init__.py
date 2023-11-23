@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.config_entry_oauth2_flow import async_get_config_entry_implementation, OAuth2Session
 
-from .api import PostNLAPI
+from .login_api import PostNLLoginAPI
 from .const import DOMAIN, PLATFORMS
 from .graphql import PostNLGraphql
 
@@ -22,8 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     session = OAuth2Session(hass, entry, implementation)
     await session.async_ensure_token_valid()
 
-    postnl_api = PostNLAPI(entry.data['token']['access_token'])
-    userinfo = await hass.async_add_executor_job(postnl_api.userinfo)
+    postnl_login_api = PostNLLoginAPI(entry.data['token']['access_token'])
+    userinfo = await hass.async_add_executor_job(postnl_login_api.userinfo)
 
     if "error" in userinfo:
         raise ConfigEntryNotReady

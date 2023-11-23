@@ -15,20 +15,22 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.postnl import PostNLGraphql
 from custom_components.postnl.coordinator import PostNLCoordinator
+from custom_components.postnl.jouw_api import PostNLJouwAPI
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up the PostNL sensor platform."""
 
-    graphq_api = PostNLGraphql(
-        entry.data['token']['access_token']
-    )
-
     entities = [
         PostNLDelivery(
             name="PostNL",
-            graphq_api=graphq_api
+            graphq_api=PostNLGraphql(
+                entry.data['token']['access_token']
+            ),
+            jouw_api=PostNLJouwAPI(
+                entry.data['token']['access_token']
+            )
         )
     ]
 
@@ -36,7 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class PostNLDelivery(Entity):
-    def __init__(self, name, graphq_api: PostNLGraphql):
+    def __init__(self, name, graphq_api: PostNLGraphql, jouw_api: PostNLJouwAPI):
         """Initialize the PostNL sensor."""
         self._name = name + "_delivery"
         self._attributes = {
@@ -45,6 +47,7 @@ class PostNLDelivery(Entity):
         }
         self._state = None
         self.graphq_api = graphq_api
+        self.jouw_api = jouw_api
 
     @property
     def name(self):
@@ -79,22 +82,26 @@ class PostNLDelivery(Entity):
         self._attributes['delivered'] = []
 
         for shipment in shipments['trackedShipments']['receiverShipments']:
-            _LOGGER.debug(pprint.pformat(shipment))
+            track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace, shipment['key'])
+
+            colli = track_and_trace_details['colli'][shipment['barcode']]
 
             if shipment['delivered']:
                 self._attributes['delivered'].append({
                     'name': shipment['title'],
                     'url':  shipment['detailsUrl'],
-                    'delivery_date': shipment['deliveredTimeStamp']
+                    'delivery_date': shipment['deliveredTimeStamp'],
+                    'status_message': colli['statusPhase']['message']
                 })
             else:
                 self._attributes['enroute'].append({
                     'name': shipment['title'],
                     'url': shipment['detailsUrl'],
-                    'planned_date': shipment['deliveryWindowFrom']
+                    'planned_date': shipment['deliveryWindowFrom'],
+                    'planned_from': shipment['deliveryWindowFrom'],
+                    'planned_to': shipment['deliveryWindowTo'],
+                    'status_message': colli['statusPhase']['message']
                 })
-
-        _LOGGER.debug(self._attributes)
 
         self._state = len(self._attributes['enroute'])
 
