@@ -22,6 +22,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     session = OAuth2Session(hass, entry, implementation)
     await session.async_ensure_token_valid()
 
+    _LOGGER.debug('Using access token: %s', entry.data['token']['access_token'])
+    _LOGGER.debug('Using refresh token: %s', entry.data['token']['refresh_token'])
+
     postnl_login_api = PostNLLoginAPI(entry.data['token']['access_token'])
     userinfo = await hass.async_add_executor_job(postnl_login_api.userinfo)
 

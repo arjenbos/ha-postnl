@@ -4,6 +4,7 @@ import logging
 import pprint
 
 import voluptuous as vol
+from gql.transport.exceptions import TransportQueryError
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.config_entries import ConfigEntry
@@ -11,6 +12,7 @@ from homeassistant.const import (
     ATTR_ATTRIBUTION, CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_USERNAME)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.config_entry_oauth2_flow import async_get_config_entry_implementation, OAuth2Session
 from homeassistant.helpers.entity import Entity
 
 from custom_components.postnl import PostNLGraphql
@@ -25,12 +27,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities = [
         PostNLDelivery(
             name="PostNL",
-            graphq_api=PostNLGraphql(
-                entry.data['token']['access_token']
-            ),
-            jouw_api=PostNLJouwAPI(
-                entry.data['token']['access_token']
-            )
+            hass=hass,
+            entry=entry
         )
     ]
 
@@ -38,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class PostNLDelivery(Entity):
-    def __init__(self, name, graphq_api: PostNLGraphql, jouw_api: PostNLJouwAPI):
+    def __init__(self, name, hass: HomeAssistant, entry: ConfigEntry):
         """Initialize the PostNL sensor."""
         self._name = name + "_delivery"
         self._attributes = {
@@ -46,8 +44,15 @@ class PostNLDelivery(Entity):
             'delivered': [],
         }
         self._state = None
-        self.graphq_api = graphq_api
-        self.jouw_api = jouw_api
+        self.entry = entry
+        self.hass = hass
+
+        self.graphq_api = PostNLGraphql(
+                entry.data['token']['access_token']
+            )
+        self.jouw_api = PostNLJouwAPI(
+                entry.data['token']['access_token']
+            )
 
     @property
     def name(self):
@@ -74,8 +79,23 @@ class PostNLDelivery(Entity):
         """Icon to use in the frontend."""
         return "mdi:package-variant-closed"
 
+    async def update_access_token(self):
+        implementation = await async_get_config_entry_implementation(self.hass, self.entry)
+        session = OAuth2Session(self.hass, self.entry, implementation)
+        await session.async_ensure_token_valid()
+
+        self.graphq_api = PostNLGraphql(
+            self.entry.data['token']['access_token']
+        )
+
+        self.jouw_api = PostNLJouwAPI(
+            self.entry.data['token']['access_token']
+        )
+
     async def async_update(self):
         """Update device state."""
+        _LOGGER.debug('Update shipments')
+        await self.update_access_token()
         shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
 
         self._attributes['enroute'] = []
@@ -83,6 +103,11 @@ class PostNLDelivery(Entity):
 
         for shipment in shipments['trackedShipments']['receiverShipments']:
             track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace, shipment['key'])
+
+            if 'colli' not in track_and_trace_details:
+                _LOGGER.debug('No colli found.')
+                _LOGGER.debug(track_and_trace_details)
+                continue
 
             colli = track_and_trace_details['colli'][shipment['barcode']]
 
