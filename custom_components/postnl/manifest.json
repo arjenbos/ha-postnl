@@ -7,7 +7,7 @@
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/arjenbos/ha_postnl/issues",
-  "requirements": ["authomatic==1.2.1", "gql"],
+  "requirements": ["gql"],
   "version": "1.0.0",
   "dependencies": ["application_credentials"]
 }
