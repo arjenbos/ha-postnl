@@ -1,9 +1,6 @@
 # PostNL Home Assistant Integration
 A custom integration for PostNL. 
 
-# UNDER DEVELOPMENT
-Do not use this integration yet.
-
 ## Install integration
 - Download the Chrome browser extension and install it.
   - More information: https://developer.chrome.com/docs/extensions/mv3/getstarted/development-basics/#load-unpacked
