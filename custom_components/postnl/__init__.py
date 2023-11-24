@@ -61,7 +61,8 @@ class AsyncConfigEntryAuth:
         return self.oauth_session.token[CONF_ACCESS_TOKEN]
 
     async def force_refresh_expire(self):
-        self.oauth_session.token["expires_at"] = time.time()
+        _LOGGER.debug('Force token refresh')
+        self.oauth_session.token["expires_at"] = time.time() - 600
 
     async def check_and_refresh_token(self) -> str:
         """Check the token."""
