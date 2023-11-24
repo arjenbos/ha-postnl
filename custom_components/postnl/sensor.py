@@ -72,6 +72,9 @@ class PostNLDelivery(CoordinatorEntity, Entity):
         self.async_write_ha_state()
 
     def handle_coordinator_data(self):
+        self._attributes['delivered'] = []
+        self._attributes['enroute'] = []
+
         for package in self.coordinator.data:
             if package.delivered:
                 self._attributes['delivered'].append(vars(package))
