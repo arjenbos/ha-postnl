@@ -1,4 +1,5 @@
 import logging
+import time
 
 from aiohttp.client_exceptions import ClientError, ClientResponseError
 from gql.transport.exceptions import TransportQueryError
@@ -59,6 +60,9 @@ class AsyncConfigEntryAuth:
         """Return the access token."""
         return self.oauth_session.token[CONF_ACCESS_TOKEN]
 
+    async def force_refresh_expire(self):
+        self.oauth_session.token["expires_at"] = time.time()
+
     async def check_and_refresh_token(self) -> str:
         """Check the token."""
 
@@ -85,8 +89,7 @@ class AsyncConfigEntryAuth:
         except TransportQueryError as exception:
             _LOGGER.debug("GraphQL error %s", exception)
 
-            self.oauth_session.config_entry.async_start_reauth(
-                self.oauth_session.hass
-            )
+            await self.force_refresh_expire()
+            await self.oauth_session.async_ensure_token_valid()
 
         return self.access_token
