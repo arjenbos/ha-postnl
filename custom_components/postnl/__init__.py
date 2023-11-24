@@ -81,7 +81,9 @@ class AsyncConfigEntryAuth:
                     self.oauth_session.hass
                 )
             raise HomeAssistantError(ex) from ex
-        except TransportQueryError:
+        except TransportQueryError as exception:
+            _LOGGER.debug("GraphQL error %s", exception)
+
             self.oauth_session.config_entry.async_start_reauth(
                 self.oauth_session.hass
             )
