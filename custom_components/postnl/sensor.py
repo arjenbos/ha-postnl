@@ -1,58 +1,42 @@
 """Sensor for PostNL packages."""
-import datetime
 import logging
-import pprint
-
-import voluptuous as vol
-from gql.transport.exceptions import TransportQueryError
-
-from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    ATTR_ATTRIBUTION, CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_USERNAME)
-import homeassistant.helpers.config_validation as cv
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.config_entry_oauth2_flow import async_get_config_entry_implementation, OAuth2Session
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.postnl import PostNLGraphql
 from custom_components.postnl.coordinator import PostNLCoordinator
-from custom_components.postnl.jouw_api import PostNLJouwAPI
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up the PostNL sensor platform."""
 
-    entities = [
+    coordinator = PostNLCoordinator(hass)
+
+    await coordinator.async_config_entry_first_refresh()
+
+    async_add_entities([
         PostNLDelivery(
-            name="PostNL",
-            hass=hass,
-            entry=entry
+            coordinator=coordinator,
+            name="PostNL_delivery"
         )
-    ]
-
-    async_add_entities(entities)
+    ])
 
 
-class PostNLDelivery(Entity):
-    def __init__(self, name, hass: HomeAssistant, entry: ConfigEntry):
+class PostNLDelivery(CoordinatorEntity, Entity):
+    def __init__(self, coordinator, name):
         """Initialize the PostNL sensor."""
-        self._name = name + "_delivery"
+        super().__init__(coordinator, context=name)
+        self._name = name
         self._attributes = {
             'enroute': [],
             'delivered': [],
         }
         self._state = None
-        self.entry = entry
-        self.hass = hass
 
-        self.graphq_api = PostNLGraphql(
-                entry.data['token']['access_token']
-            )
-        self.jouw_api = PostNLJouwAPI(
-                entry.data['token']['access_token']
-            )
+        self.handle_coordinator_data()
 
     @property
     def name(self):
@@ -79,54 +63,20 @@ class PostNLDelivery(Entity):
         """Icon to use in the frontend."""
         return "mdi:package-variant-closed"
 
-    async def update_access_token(self):
-        implementation = await async_get_config_entry_implementation(self.hass, self.entry)
-        session = OAuth2Session(self.hass, self.entry, implementation)
-        await session.async_ensure_token_valid()
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        _LOGGER.debug('Updating sensor %s', self.name)
 
-        self.graphq_api = PostNLGraphql(
-            self.entry.data['token']['access_token']
-        )
+        self.handle_coordinator_data()
 
-        self.jouw_api = PostNLJouwAPI(
-            self.entry.data['token']['access_token']
-        )
+        self.async_write_ha_state()
 
-    async def async_update(self):
-        """Update device state."""
-        _LOGGER.debug('Update shipments')
-        await self.update_access_token()
-        shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
-
-        self._attributes['enroute'] = []
-        self._attributes['delivered'] = []
-
-        for shipment in shipments['trackedShipments']['receiverShipments']:
-            track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace, shipment['key'])
-
-            if 'colli' not in track_and_trace_details:
-                _LOGGER.debug('No colli found.')
-                _LOGGER.debug(track_and_trace_details)
-                continue
-
-            colli = track_and_trace_details['colli'][shipment['barcode']]
-
-            if shipment['delivered']:
-                self._attributes['delivered'].append({
-                    'name': shipment['title'],
-                    'url':  shipment['detailsUrl'],
-                    'delivery_date': shipment['deliveredTimeStamp'],
-                    'status_message': colli['statusPhase']['message']
-                })
+    def handle_coordinator_data(self):
+        for package in self.coordinator.data:
+            if package.delivered:
+                self._attributes['delivered'].append(vars(package))
             else:
-                self._attributes['enroute'].append({
-                    'name': shipment['title'],
-                    'url': shipment['detailsUrl'],
-                    'planned_date': shipment['deliveryWindowFrom'],
-                    'planned_from': shipment['deliveryWindowFrom'],
-                    'planned_to': shipment['deliveryWindowTo'],
-                    'status_message': colli['statusPhase']['message']
-                })
+                self._attributes['enroute'].append(vars(package))
 
         self._state = len(self._attributes['enroute'])
 
