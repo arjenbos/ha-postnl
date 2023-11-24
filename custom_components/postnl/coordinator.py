@@ -4,10 +4,10 @@ from datetime import timedelta
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from . import PostNLGraphql, AsyncConfigEntryAuth
+from . import AsyncConfigEntryAuth, PostNLGraphql
+from .const import DOMAIN
 from .jouw_api import PostNLJouwAPI
 from .structs.package import Package
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

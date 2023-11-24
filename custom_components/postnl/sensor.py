@@ -1,5 +1,6 @@
 """Sensor for PostNL packages."""
 import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import Entity
@@ -39,8 +40,13 @@ class PostNLDelivery(CoordinatorEntity, Entity):
         self.handle_coordinator_data()
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the sensor."""
+        return self._name
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID."""
         return self._name
 
     @property

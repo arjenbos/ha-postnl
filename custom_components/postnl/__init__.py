@@ -1,21 +1,18 @@
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from aiohttp.client_exceptions import ClientError, ClientResponseError
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.config_entry_oauth2_flow import async_get_config_entry_implementation, OAuth2Session
+from homeassistant.exceptions import (ConfigEntryAuthFailed,
+                                      ConfigEntryNotReady, HomeAssistantError)
+from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.config_entry_oauth2_flow import (
+    OAuth2Session, async_get_config_entry_implementation)
 
-from .login_api import PostNLLoginAPI
 from .const import DOMAIN, PLATFORMS
 from .graphql import PostNLGraphql
-from aiohttp.client_exceptions import ClientError, ClientResponseError
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_ACCESS_TOKEN
-from homeassistant.exceptions import (
-    ConfigEntryAuthFailed,
-    ConfigEntryNotReady,
-    HomeAssistantError,
-)
-from homeassistant.helpers import config_entry_oauth2_flow
+from .login_api import PostNLLoginAPI
 
 _LOGGER = logging.getLogger(__name__)
 

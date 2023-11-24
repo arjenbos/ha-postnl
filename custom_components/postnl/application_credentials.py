@@ -3,13 +3,15 @@ import hashlib
 import logging
 import os
 import re
-from dataclasses import dataclass
-from typing import cast, Any
+from typing import Any
 
+from homeassistant.components.application_credentials import (
+    AuthImplementation, AuthorizationServer, ClientCredential)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_entry_oauth2_flow
-from homeassistant.components.application_credentials import AuthImplementation, AuthorizationServer, ClientCredential
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .const import (POSTNL_AUTH_URL, POSTNL_CLIENT_ID, POSTNL_REDIRECT_URI,
+                    POSTNL_SCOPE, POSTNL_TOKEN_URL)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,12 +32,12 @@ class OAuth2Impl(AuthImplementation):
 
     @property
     def redirect_uri(self) -> str:
-        return "postnl://login"
+        return POSTNL_REDIRECT_URI
 
     @property
     def extra_authorize_data(self) -> dict:
         return {
-            "scope": "profile openid email address phone poa-profiles-api",
+            "scope": POSTNL_SCOPE,
             "code_challenge": self.code_challenge,
             "code_challenge_method": "S256"
         }
@@ -69,12 +71,12 @@ async def async_get_auth_implementation(
         hass,
         auth_domain,
         ClientCredential(
-            client_id="deb0a372-6d72-4e09-83fe-997beacbd137",
+            client_id=POSTNL_CLIENT_ID,
             client_secret=""
         ),
         AuthorizationServer(
-            authorize_url="https://login.postnl.nl/101112a0-4a0f-4bbb-8176-2f1b2d370d7c/login/authorize",
-            token_url="https://login.postnl.nl/101112a0-4a0f-4bbb-8176-2f1b2d370d7c/login/token"
+            authorize_url=POSTNL_AUTH_URL,
+            token_url=POSTNL_TOKEN_URL
         ),
         code_challenge=code_challenge,
         code_verifier=code_verifier
