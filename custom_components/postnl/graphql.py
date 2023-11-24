@@ -28,6 +28,7 @@ class PostNLGraphql:
         return self.client.execute(query)
 
     def profile(self):
+        _LOGGER.debug('Fetching profile')
         query = """
             query {
               profile {
@@ -122,14 +123,12 @@ class PostNLGraphql:
         return result
 
     def shipments(self):
+        _LOGGER.debug('Fetching shipments')
+
         query = """
         query {
           trackedShipments {
             receiverShipments {
-              ...shipment
-              __typename
-            }
-            senderShipments {
               ...shipment
               __typename
             }

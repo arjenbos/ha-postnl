@@ -1,6 +1,7 @@
 import logging
 
 from aiohttp.client_exceptions import ClientError, ClientResponseError
+from gql.transport.exceptions import TransportQueryError
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
@@ -63,6 +64,8 @@ class AsyncConfigEntryAuth:
 
         try:
             await self.oauth_session.async_ensure_token_valid()
+            await self.oauth_session.hass.async_add_executor_job(PostNLGraphql(self.access_token).profile)
+
         except (ClientResponseError, ClientError) as ex:
             if (
                 self.oauth_session.config_entry.state
@@ -78,5 +81,9 @@ class AsyncConfigEntryAuth:
                     self.oauth_session.hass
                 )
             raise HomeAssistantError(ex) from ex
+        except TransportQueryError:
+            self.oauth_session.config_entry.async_start_reauth(
+                self.oauth_session.hass
+            )
 
         return self.access_token
