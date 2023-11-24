@@ -64,7 +64,8 @@ class AsyncConfigEntryAuth:
 
         try:
             await self.oauth_session.async_ensure_token_valid()
-            await self.oauth_session.hass.async_add_executor_job(PostNLGraphql(self.access_token).profile)
+            graphql = PostNLGraphql(self.access_token)
+            await self.oauth_session.hass.async_add_executor_job(graphql.profile)
 
         except (ClientResponseError, ClientError) as ex:
             if (

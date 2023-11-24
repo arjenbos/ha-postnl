@@ -27,8 +27,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
         _LOGGER.debug('Get API data')
 
         auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]
-
-        await self.hass.async_add_executor_job(auth.check_and_refresh_token)
+        await auth.check_and_refresh_token()
 
         graphq_api = PostNLGraphql(auth.access_token)
         jouw_api = PostNLJouwAPI(auth.access_token)
