@@ -47,16 +47,29 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
             colli = track_and_trace_details['colli'][shipment['barcode']]
 
+            if colli.get("routeInformation") is not None:
+                route_information = colli.get("routeInformation")
+                planned_date = route_information.get("plannedDeliveryTime")
+                planned_from = route_information.get("plannedDeliveryTimeWindow").get("startDateTime")
+                planned_to = route_information.get("plannedDeliveryTimeWindow").get('endDateTime')
+                expected_datetime = route_information.get('expectedDeliveryTime')
+            else:
+                planned_date = colli.get('eta', None).get('start')
+                planned_from = colli.get('eta', None).get('start')
+                planned_to = colli.get('eta', None).get('end')
+                expected_datetime = None
+
             data.append(Package(
                 key=shipment['barcode'],
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
                 status_message=colli.get('statusPhase').get('message'),
-                delivered=shipment.get('delivered'),
-                delivery_date=shipment.get('deliveredTimeStamp', None),
-                planned_date=shipment.get('deliveryWindowFrom', None),
-                planned_from=shipment.get('deliveryWindowFrom', None),
-                planned_to=shipment.get('deliveryWindowTo', None)
+                delivered=colli.get('isDelivered'),
+                delivery_date=colli.get('deliveryDate'),
+                planned_date=planned_date,
+                planned_from=planned_from,
+                planned_to=planned_to,
+                expected_datetime=expected_datetime
             ))
 
         _LOGGER.debug('Found %d packages', len(data))
