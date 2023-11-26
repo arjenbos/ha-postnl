@@ -36,22 +36,25 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
         shipments = await self.hass.async_add_executor_job(graphq_api.shipments)
 
-        for shipment in shipments['trackedShipments']['receiverShipments']:
-            _LOGGER.debug('Updating %s', shipment['barcode'])
+        for shipment in shipments.get('trackedShipments', {}).get('receiverShipments', []):
+            _LOGGER.debug('Updating %s', shipment.get('barcode'))
             track_and_trace_details = await self.hass.async_add_executor_job(jouw_api.track_and_trace, shipment['key'])
 
-            if 'colli' not in track_and_trace_details:
+            if not track_and_trace_details.get('colli'):
                 _LOGGER.debug('No colli found.')
                 _LOGGER.debug(track_and_trace_details)
-                continue
 
-            colli = track_and_trace_details['colli'][shipment['barcode']]
+            colli = track_and_trace_details['colli'].get(shipment['barcode'], {})
 
-            if colli.get("routeInformation") is not None:
+            if not colli:
+                _LOGGER.debug('Barcode not found in track and trace details.')
+                _LOGGER.debug(track_and_trace_details)
+
+            if colli.get("routeInformation"):
                 route_information = colli.get("routeInformation")
                 planned_date = route_information.get("plannedDeliveryTime")
-                planned_from = route_information.get("plannedDeliveryTimeWindow").get("startDateTime")
-                planned_to = route_information.get("plannedDeliveryTimeWindow").get('endDateTime')
+                planned_from = route_information.get("plannedDeliveryTimeWindow", {}).get("startDateTime")
+                planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get('endDateTime')
                 expected_datetime = route_information.get('expectedDeliveryTime')
             else:
                 planned_date = colli.get('eta', None).get('start')
@@ -60,7 +63,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 expected_datetime = None
 
             data.append(Package(
-                key=shipment['barcode'],
+                key=shipment.get('key'),
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
                 status_message=colli.get('statusPhase').get('message'),
