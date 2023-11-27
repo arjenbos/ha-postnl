@@ -44,7 +44,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug('No colli found.')
                 _LOGGER.debug(track_and_trace_details)
 
-            colli = track_and_trace_details['colli'].get(shipment['barcode'], {})
+            colli = track_and_trace_details.get('colli', {}).get(shipment['barcode'], {})
 
             if not colli:
                 _LOGGER.debug('Barcode not found in track and trace details.')
