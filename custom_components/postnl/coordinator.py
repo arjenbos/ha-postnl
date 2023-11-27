@@ -37,7 +37,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
         shipments = await self.hass.async_add_executor_job(graphq_api.shipments)
 
         for shipment in shipments.get('trackedShipments', {}).get('receiverShipments', []):
-            _LOGGER.debug('Updating %s', shipment.get('barcode'))
+            _LOGGER.debug('Updating %s', shipment.get('key'))
 
             track_and_trace_details = await self.hass.async_add_executor_job(jouw_api.track_and_trace, shipment['key'])
 
@@ -71,9 +71,9 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 key=shipment.get('key'),
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
-                status_message=colli.get('statusPhase').get('message'),
-                delivered=colli.get('isDelivered'),
-                delivery_date=colli.get('deliveryDate'),
+                status_message=colli.get('statusPhase', {}).get('message', "Unknown"),
+                delivered=shipment.get('delivered'),
+                delivery_date=shipment.get('deliveredTimeStamp'),
                 planned_date=planned_date,
                 planned_from=planned_from,
                 planned_to=planned_to,
