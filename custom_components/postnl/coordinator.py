@@ -38,6 +38,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
         for shipment in shipments.get('trackedShipments', {}).get('receiverShipments', []):
             _LOGGER.debug('Updating %s', shipment.get('barcode'))
+
             track_and_trace_details = await self.hass.async_add_executor_job(jouw_api.track_and_trace, shipment['key'])
 
             if not track_and_trace_details.get('colli'):
@@ -46,20 +47,24 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
             colli = track_and_trace_details.get('colli', {}).get(shipment['barcode'], {})
 
-            if not colli:
+            if colli:
+                if colli.get("routeInformation"):
+                    route_information = colli.get("routeInformation")
+                    planned_date = route_information.get("plannedDeliveryTime")
+                    planned_from = route_information.get("plannedDeliveryTimeWindow", {}).get("startDateTime")
+                    planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get('endDateTime')
+                    expected_datetime = route_information.get('expectedDeliveryTime')
+                else:
+                    planned_date = colli.get('eta', None).get('start')
+                    planned_from = colli.get('eta', None).get('start')
+                    planned_to = colli.get('eta', None).get('end')
+                    expected_datetime = None
+            else:
                 _LOGGER.debug('Barcode not found in track and trace details.')
                 _LOGGER.debug(track_and_trace_details)
-
-            if colli.get("routeInformation"):
-                route_information = colli.get("routeInformation")
-                planned_date = route_information.get("plannedDeliveryTime")
-                planned_from = route_information.get("plannedDeliveryTimeWindow", {}).get("startDateTime")
-                planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get('endDateTime')
-                expected_datetime = route_information.get('expectedDeliveryTime')
-            else:
-                planned_date = colli.get('eta', None).get('start')
-                planned_from = colli.get('eta', None).get('start')
-                planned_to = colli.get('eta', None).get('end')
+                planned_date = shipment.get('deliveryWindowFrom', None)
+                planned_from = shipment.get('deliveryWindowFrom', None)
+                planned_to = shipment.get('deliveryWindowTo', None)
                 expected_datetime = None
 
             data.append(Package(
