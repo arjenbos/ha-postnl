@@ -3,11 +3,11 @@
   "name": "PostNL",
   "codeowners": ["@arjenbos"],
   "config_flow": true,
+  "dependencies": ["application_credentials"],
   "documentation": "https://github.com/arjenbos/ha-postnl",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/arjenbos/ha-postnl/issues",
   "requirements": ["gql"],
-  "version": "1.0.0",
-  "dependencies": ["application_credentials"]
+  "version": "1.0.0"
 }
