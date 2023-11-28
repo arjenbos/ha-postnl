@@ -2,7 +2,7 @@
 A custom integration for PostNL. 
 
 ## Install integration
-- Download the Chrome browser extension and install it.
+- Download the browser extension and install it.
   - You can find the extension here: https://github.com/arjenbos/ha-postnl-browser-extensions
 - Add the repository to HACS.
 - Install the integration via HACS.
