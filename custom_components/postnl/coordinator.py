@@ -55,9 +55,9 @@ class PostNLCoordinator(DataUpdateCoordinator):
                     planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get('endDateTime')
                     expected_datetime = route_information.get('expectedDeliveryTime')
                 else:
-                    planned_date = colli.get('eta', None).get('start')
-                    planned_from = colli.get('eta', None).get('start')
-                    planned_to = colli.get('eta', None).get('end')
+                    planned_date = colli.get('eta', {}).get('start')
+                    planned_from = colli.get('eta', {}).get('start')
+                    planned_to = colli.get('eta', {}).get('end')
                     expected_datetime = None
             else:
                 _LOGGER.debug('Barcode not found in track and trace details.')
