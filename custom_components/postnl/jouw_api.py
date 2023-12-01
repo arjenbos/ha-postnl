@@ -1,5 +1,3 @@
-# ***REMOVED***?language=nl
-
 import logging
 
 import requests
