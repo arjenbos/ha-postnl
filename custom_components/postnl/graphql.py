@@ -132,6 +132,10 @@ class PostNLGraphql:
               ...shipment
               __typename
             }
+            senderShipments {
+              ...shipment
+              __typename
+            }
             __typename
           }
         }
