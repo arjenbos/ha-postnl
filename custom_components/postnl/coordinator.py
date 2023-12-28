@@ -14,7 +14,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PostNLCoordinator(DataUpdateCoordinator):
-
     data: dict[str, list[Package]]
 
     def __init__(self, hass: HomeAssistant) -> None:
@@ -35,7 +34,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
         self.graphq_api = PostNLGraphql(auth.access_token)
         self.jouw_api = PostNLJouwAPI(auth.access_token)
 
-        data: dict[str, list[Package]] = {
+        data: dict[str, tuple[Package]] = {
             'receiver': [],
             'sender': []
         }
@@ -47,7 +46,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
         data['receiver'] = await asyncio.gather(*receiver_shipments)
 
         sender_shipments = [self.transform_shipment(shipment) for shipment in
-                              shipments.get('trackedShipments', {}).get('senderShipments', [])]
+                            shipments.get('trackedShipments', {}).get('senderShipments', [])]
         data['sender'] = await asyncio.gather(*sender_shipments)
 
         _LOGGER.debug('Found %d packages', len(data['sender']) + len(data['receiver']))
