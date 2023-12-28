@@ -17,6 +17,7 @@ class PostNLGraphql:
             url=self.endpoint,
             verify=True,
             retries=3,
+            timeout=60,
             headers={
                 'Authorization': 'Bearer ' + access_token
             }

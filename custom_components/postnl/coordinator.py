@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -41,19 +42,21 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
         shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
 
-        for shipment in shipments.get('trackedShipments', {}).get('receiverShipments', []):
-            _LOGGER.debug('Updating %s', shipment.get('key'))
-            data['receiver'].append(await self.transform_shipment(shipment))
+        receiver_shipments = [self.transform_shipment(shipment) for shipment in
+                              shipments.get('trackedShipments', {}).get('receiverShipments', [])]
+        data['receiver'] = await asyncio.gather(*receiver_shipments)
 
-        for shipment in shipments.get('trackedShipments', {}).get('senderShipments', []):
-            _LOGGER.debug('Updating %s', shipment.get('key'))
-            data['sender'].append(await self.transform_shipment(shipment))
+        sender_shipments = [self.transform_shipment(shipment) for shipment in
+                              shipments.get('trackedShipments', {}).get('senderShipments', [])]
+        data['sender'] = await asyncio.gather(*sender_shipments)
 
         _LOGGER.debug('Found %d packages', len(data['sender']) + len(data['receiver']))
 
         return data
 
     async def transform_shipment(self, shipment) -> Package:
+        _LOGGER.debug('Updating %s', shipment.get('key'))
+
         track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace, shipment['key'])
 
         if not track_and_trace_details.get('colli'):
