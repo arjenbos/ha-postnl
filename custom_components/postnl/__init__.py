@@ -45,12 +45,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     return True
 
 
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload PostNL config entry."""
+    _LOGGER.debug('Reloading PostNL integration')
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
+
+
 class AsyncConfigEntryAuth:
     """Provide PostNL authentication tied to an OAuth2 based config entry."""
 
     def __init__(
-        self,
-        oauth2_session: config_entry_oauth2_flow.OAuth2Session,
+            self,
+            oauth2_session: config_entry_oauth2_flow.OAuth2Session,
     ) -> None:
         """Initialize PostNL Auth."""
         self.oauth_session = oauth2_session
@@ -74,8 +85,8 @@ class AsyncConfigEntryAuth:
 
         except (ClientResponseError, ClientError) as ex:
             if (
-                self.oauth_session.config_entry.state
-                is ConfigEntryState.SETUP_IN_PROGRESS
+                    self.oauth_session.config_entry.state
+                    is ConfigEntryState.SETUP_IN_PROGRESS
             ):
                 if isinstance(ex, ClientResponseError) and 400 <= ex.status < 500:
                     raise ConfigEntryAuthFailed(

@@ -3,7 +3,7 @@ import logging
 from datetime import timedelta
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import AsyncConfigEntryAuth, PostNLGraphql
 from .const import DOMAIN
@@ -25,33 +25,36 @@ class PostNLCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=120),
         )
 
-    async def _async_update_data(self) -> dict[str, list[Package]]:
+    async def _async_update_data(self) -> dict[str, tuple[Package]]:
         _LOGGER.debug('Get API data')
+        try:
 
-        auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]
-        await auth.check_and_refresh_token()
+            auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]
+            await auth.check_and_refresh_token()
 
-        self.graphq_api = PostNLGraphql(auth.access_token)
-        self.jouw_api = PostNLJouwAPI(auth.access_token)
+            self.graphq_api = PostNLGraphql(auth.access_token)
+            self.jouw_api = PostNLJouwAPI(auth.access_token)
 
-        data: dict[str, tuple[Package]] = {
-            'receiver': [],
-            'sender': []
-        }
+            data: dict[str, tuple[Package]] = {
+                'receiver': [],
+                'sender': []
+            }
 
-        shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
+            shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
 
-        receiver_shipments = [self.transform_shipment(shipment) for shipment in
-                              shipments.get('trackedShipments', {}).get('receiverShipments', [])]
-        data['receiver'] = await asyncio.gather(*receiver_shipments)
+            receiver_shipments = [self.transform_shipment(shipment) for shipment in
+                                  shipments.get('trackedShipments', {}).get('receiverShipments', [])]
+            data['receiver'] = await asyncio.gather(*receiver_shipments)
 
-        sender_shipments = [self.transform_shipment(shipment) for shipment in
-                            shipments.get('trackedShipments', {}).get('senderShipments', [])]
-        data['sender'] = await asyncio.gather(*sender_shipments)
+            sender_shipments = [self.transform_shipment(shipment) for shipment in
+                                shipments.get('trackedShipments', {}).get('senderShipments', [])]
+            data['sender'] = await asyncio.gather(*sender_shipments)
 
-        _LOGGER.debug('Found %d packages', len(data['sender']) + len(data['receiver']))
+            _LOGGER.debug('Found %d packages', len(data['sender']) + len(data['receiver']))
 
-        return data
+            return data
+        except Exception as exception:
+            raise UpdateFailed(exception)
 
     async def transform_shipment(self, shipment) -> Package:
         _LOGGER.debug('Updating %s', shipment.get('key'))
