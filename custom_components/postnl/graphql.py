@@ -1,9 +1,7 @@
 import logging
 
-import requests
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
-from graphql import DocumentNode
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -17,6 +17,8 @@ _LOGGER = logging.getLogger(__name__)
 
 class PostNLCoordinator(DataUpdateCoordinator):
     data: dict[str, list[Package]]
+    graphq_api: PostNLGraphql
+    jouw_api: PostNLJouwAPI
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize PostNL coordinator."""
@@ -55,7 +57,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
             return data
         except requests.exceptions.RequestException as exception:
-            raise UpdateFailed(f"Unable to update PostNL data") from exception
+            raise UpdateFailed("Unable to update PostNL data") from exception
 
     async def transform_shipment(self, shipment) -> Package:
         _LOGGER.debug('Updating %s', shipment.get('key'))
@@ -120,4 +122,4 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 expected_datetime=expected_datetime
             )
         except requests.exceptions.RequestException as exception:
-            raise UpdateFailed(f"Unable to update PostNL data") from exception
+            raise UpdateFailed("Unable to update PostNL data") from exception
