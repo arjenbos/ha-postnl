@@ -19,7 +19,8 @@ class PostNLJouwAPI:
                     total=5,
                     backoff_factor=3
                 ),
-                pool_maxsize=50
+                pool_maxsize=25,
+                pool_block=True
             )
         )
         self.client.headers = {
