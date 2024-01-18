@@ -1,6 +1,8 @@
 import logging
 import time
 
+import requests
+import urllib3
 from aiohttp.client_exceptions import ClientError, ClientResponseError
 from gql.transport.exceptions import TransportQueryError
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
@@ -28,17 +30,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     implementation = await async_get_config_entry_implementation(hass, entry)
     session = OAuth2Session(hass, entry, implementation)
     auth = AsyncConfigEntryAuth(session)
-    await auth.check_and_refresh_token()
+
+    try:
+        await auth.check_and_refresh_token()
+    except requests.exceptions.ConnectionError as exception:
+        raise ConfigEntryNotReady(f"Unable to retrieve oauth data from PostNL") from exception
 
     hass.data[DOMAIN][entry.entry_id] = auth
 
     _LOGGER.debug('Using access token: %s', auth.access_token)
 
     postnl_login_api = PostNLLoginAPI(auth.access_token)
-    userinfo = await hass.async_add_executor_job(postnl_login_api.userinfo)
+    try:
+        userinfo = await hass.async_add_executor_job(postnl_login_api.userinfo)
+    except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError) as exception:
+        raise ConfigEntryNotReady(f"Unable to retrieve user information from PostNL.") from exception
 
     if "error" in userinfo:
-        raise ConfigEntryNotReady
+        raise ConfigEntryNotReady(f"Error in retrieving user information from PostNL.")
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
