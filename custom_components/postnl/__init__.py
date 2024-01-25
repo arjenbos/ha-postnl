@@ -41,6 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     _LOGGER.debug('Using access token: %s', auth.access_token)
 
     postnl_login_api = PostNLLoginAPI(auth.access_token)
+
     try:
         userinfo = await hass.async_add_executor_job(postnl_login_api.userinfo)
     except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError) as exception:
@@ -91,24 +92,12 @@ class AsyncConfigEntryAuth:
             await self.oauth_session.async_ensure_token_valid()
             graphql = PostNLGraphql(self.access_token)
             await self.oauth_session.hass.async_add_executor_job(graphql.profile)
+        except (ClientResponseError, ClientError) as exception:
+            _LOGGER.debug("API error: %s", exception)
 
-        except (ClientResponseError, ClientError) as ex:
-            if (
-                    self.oauth_session.config_entry.state
-                    is ConfigEntryState.SETUP_IN_PROGRESS
-            ):
-                if isinstance(ex, ClientResponseError) and 400 <= ex.status < 500:
-                    raise ConfigEntryAuthFailed(
-                        "OAuth session is not valid, reauth required"
-                    ) from ex
-                raise ConfigEntryNotReady from ex
-            if hasattr(ex, "status") and ex.status == 400:
-                self.oauth_session.config_entry.async_start_reauth(
-                    self.oauth_session.hass
-                )
-            raise HomeAssistantError(ex) from ex
+            raise HomeAssistantError(exception) from exception
         except TransportQueryError as exception:
-            _LOGGER.debug("GraphQL error %s", exception)
+            _LOGGER.debug("GraphQL error: %s", exception)
 
             await self.force_refresh_expire()
             await self.oauth_session.async_ensure_token_valid()
