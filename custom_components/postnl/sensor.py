@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .calendar import PostNLCalendar
 from .coordinator import PostNLCoordinator
 from .structs.package import Package
 
@@ -32,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     ])
 
 
-class PostNLDelivery(CoordinatorEntity, Entity):
+class PostNLDelivery(CoordinatorEntity[PostNLCoordinator], Entity):
     def __init__(self, coordinator, name, receiver: bool = True):
         """Initialize the PostNL sensor."""
         super().__init__(coordinator, context=name)
@@ -81,7 +82,7 @@ class PostNLDelivery(CoordinatorEntity, Entity):
 
         self.handle_coordinator_data()
 
-        self.async_write_ha_state()
+        super()._handle_coordinator_update()
 
     def handle_coordinator_data(self):
         self._attributes['delivered'] = []
