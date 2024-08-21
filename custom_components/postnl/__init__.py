@@ -92,8 +92,11 @@ class AsyncConfigEntryAuth:
             await self.oauth_session.async_ensure_token_valid()
             graphql = PostNLGraphql(self.access_token)
             await self.oauth_session.hass.async_add_executor_job(graphql.profile)
+
         except (ClientResponseError, ClientError) as exception:
             _LOGGER.debug("API error: %s", exception)
+            if exception.status == 400:
+                raise ConfigEntryAuthFailed from exception
 
             raise HomeAssistantError(exception) from exception
         except TransportQueryError as exception:
