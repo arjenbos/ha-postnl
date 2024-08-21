@@ -96,7 +96,9 @@ class AsyncConfigEntryAuth:
         except (ClientResponseError, ClientError) as exception:
             _LOGGER.debug("API error: %s", exception)
             if exception.status == 400:
-                raise ConfigEntryAuthFailed from exception
+                self.oauth_session.config_entry.async_start_reauth(
+                    self.oauth_session.hass
+                )
 
             raise HomeAssistantError(exception) from exception
         except TransportQueryError as exception:
