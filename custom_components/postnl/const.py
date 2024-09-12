@@ -9,5 +9,6 @@ POSTNL_SCOPE = "profile openid email address phone poa-profiles-api"
 
 
 PLATFORMS = [
-    Platform.SENSOR
+    Platform.SENSOR,
+    Platform.CALENDAR
 ]
