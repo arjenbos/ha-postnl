@@ -36,7 +36,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
     except requests.exceptions.ConnectionError as exception:
         raise ConfigEntryNotReady("Unable to retrieve oauth data from PostNL") from exception
 
-    hass.data[DOMAIN][entry.entry_id] = auth
+    hass.data[DOMAIN][entry.entry_id] = {
+        'auth': auth
+    }
 
     _LOGGER.debug('Using access token: %s', auth.access_token)
 
@@ -49,6 +51,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
 
     if "error" in userinfo:
         raise ConfigEntryNotReady("Error in retrieving user information from PostNL.")
+
+    hass.data[DOMAIN][entry.entry_id]['userinfo'] = userinfo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
