@@ -29,16 +29,16 @@ class PostNLCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=90),
         )
 
-    async def _async_update_data(self) -> dict[str, tuple[Package]]:
+    async def _async_update_data(self) -> dict[str, list[Package]]:
         _LOGGER.debug('Get API data')
         try:
-            auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]
+            auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]['auth']
             await auth.check_and_refresh_token()
 
             self.graphq_api = PostNLGraphql(auth.access_token)
             self.jouw_api = PostNLJouwAPI(auth.access_token)
 
-            data: dict[str, tuple[Package]] = {
+            data: dict[str, list[Package]] = {
                 'receiver': [],
                 'sender': []
             }
