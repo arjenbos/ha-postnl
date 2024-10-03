@@ -490,7 +490,7 @@ class PostNL extends LitElement {
       throw new Error('Please define entities');
     }
 
-    this.config = {
+    this._config = {
       ...config,
     };
   }

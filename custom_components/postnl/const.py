@@ -8,7 +8,6 @@ POSTNL_TOKEN_URL = "https://login.postnl.nl/101112a0-4a0f-4bbb-8176-2f1b2d370d7c
 POSTNL_REDIRECT_URI = "postnl://login"
 POSTNL_SCOPE = "profile openid email address phone poa-profiles-api"
 
-
 PLATFORMS = [
     Platform.SENSOR
 ]

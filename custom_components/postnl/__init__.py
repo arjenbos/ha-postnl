@@ -8,11 +8,10 @@ from gql.transport.exceptions import TransportQueryError
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ACCESS_TOKEN
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import (ConfigEntryAuthFailed,
-                                      ConfigEntryNotReady, HomeAssistantError)
+from homeassistant.exceptions import (ConfigEntryNotReady, HomeAssistantError)
 from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers.config_entry_oauth2_flow import (
     OAuth2Session, async_get_config_entry_implementation)
@@ -59,7 +58,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-
     # if not hass.http.app.router.get('/postnl/lovelace'):
     #     hass.http.register_static_path(
     #         url_path='/postnl/lovelace',
@@ -69,7 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
 
     if not await path_registered(hass=hass, url='/postnl/lovelace.js'):
         await hass.http.async_register_static_paths([
-                StaticPathConfig(
+            StaticPathConfig(
                 url_path='/postnl/lovelace.js',
                 path=hass.config.path("custom_components/postnl/lovelace.js"),
                 cache_headers=True
@@ -84,12 +82,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
 
     return True
 
+
 async def path_registered(hass: HomeAssistant, url: str):
     for resource in hass.http.app.router.resources():
         if url in resource.canonical:
             return True
 
     return False
+
 
 async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
     resources: ResourceStorageCollection = hass.data["lovelace"]["resources"]
@@ -126,6 +126,7 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         add_extra_js_url(hass, url2)
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload PostNL config entry."""
