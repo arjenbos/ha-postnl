@@ -1,9 +1,14 @@
 import logging
 
+import voluptuous
+import voluptuous as vol
+import homeassistant.helpers.config_validation as cv
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import config_entry_oauth2_flow
 
 from .const import DOMAIN
+from .dhl import DHL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +26,49 @@ class OAuth2FlowHandler(
     def logger(self) -> logging.Logger:
         """Return logger."""
         return logging.getLogger(__name__)
+
+    async def async_step_user(self, info = None):
+        _LOGGER.debug(info)
+        if info is not None:
+            if "DHL" in info.get('providers'):
+                return await self.async_step_dhl(info)
+            else:
+                return await super().async_step_user()
+
+        return self.async_show_form(
+            step_id="user", data_schema=vol.Schema({
+                vol.Required("providers"): vol.All(
+                    cv.multi_select([
+                        "PostNL",
+                        "DHL"
+                    ])
+                )
+            })
+        )
+
+    async def async_step_dhl(self, info = None):
+        errors = {}
+        _LOGGER.debug(info)
+        if info.get('email', None) is not None:
+            dhl = DHL()
+            response = await self.hass.async_add_executor_job(dhl.login,
+                info.get('email'),
+                info.get('password')
+            )
+            _LOGGER.debug('DHL login: %s', response)
+
+            if response.get('userId', None) is None:
+                errors["base"] = "invalid_auth"
+
+
+        return self.async_show_form(
+            step_id="dhl",
+            data_schema=vol.Schema({
+                vol.Required("email"): str,
+                vol.Required("password"): str
+            }),
+            errors=errors
+        )
 
     async def async_step_reauth(self, user_input=None):
         """Perform reauth upon an API authentication error."""

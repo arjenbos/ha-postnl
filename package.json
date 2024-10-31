@@ -13,11 +13,11 @@
     ],
     "module": "src/lovelace.js",
     "dependencies": {
-        "lit-element": "^2.1.0",
-        "lit-html": "^1.0.0",
-        "moment": "^2.24.0"
+        "lit": "2.8.0",
+        "moment": "^2.30.0"
     },
     "devDependencies": {
+        "ts-loader": "^9.5.1",
         "webpack": "^5.95.0",
         "webpack-cli": "^5.1.4"
     },
