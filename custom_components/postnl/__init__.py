@@ -17,6 +17,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 from .const import DOMAIN, PLATFORMS
 from .graphql import PostNLGraphql
 from .login_api import PostNLLoginAPI
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> True:
         raise ConfigEntryNotReady("Error in retrieving user information from PostNL.")
 
     hass.data[DOMAIN][entry.entry_id]['userinfo'] = userinfo
+
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+
+    for device_entry in dr.async_entries_for_config_entry(
+        device_registry, entry.entry_id
+    ):
+        if (
+            device_entry.identifiers == {(DOMAIN, userinfo.get('account_id'))}
+        ):
+            _LOGGER.debug(
+                "Migrating entry %s"
+            )
+            for entity_entry in er.async_entries_for_device(
+                entity_registry, device_entry.id, True
+            ):
+                if entity_entry.unique_id.startswith(userinfo.get('account_id')):
+                    continue
+
+                unique_id_parts = entity_entry.unique_id.split("_")
+                entity_new_unique_id = userinfo.get('account_id') + "_" + unique_id_parts[1]
+                entity_registry.async_update_entity(
+                    entity_id=entity_entry.entity_id, new_unique_id=entity_new_unique_id
+                )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
