@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "moduleResolution": "node",
+        "noImplicitAny": true,
+        "target": "es2017",
+        "module": "esnext",
+        "esModuleInterop": true
+    }
+}
