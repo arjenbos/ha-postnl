@@ -23,32 +23,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     await coordinator.async_config_entry_first_refresh()
     userinfo = hass.data[DOMAIN][entry.entry_id]['userinfo']
 
-    # Backwards compatibility support with old sensor names and to support the legacy lovelace.
-    unique_id_prefix = "postnl_"
-    entity_registry = async_get_entity_registry(hass)
-    if entity_registry.async_get_entity_id(
-        domain="sensor",
-        platform="postnl",
-        unique_id="postnl_delivery"
-    ) or entity_registry.async_get_entity_id(
-        domain="sensor",
-        platform="postnl",
-        unique_id="postnl_distribution"
-    ):
-        unique_id_prefix = userinfo.get('account_id') + "_"
-
     async_add_entities([
         PostNLDelivery(
             coordinator=coordinator,
             postnl_userinfo=userinfo,
-            unique_id= unique_id_prefix + "delivery",
+            unique_id= userinfo.get('account_id') + "_" + "delivery",
             name="PostNL_delivery"
         ),
         PostNLDelivery(
             coordinator=coordinator,
             postnl_userinfo=userinfo,
             name="PostNL_distribution",
-            unique_id=unique_id_prefix + "distribution",
+            unique_id=userinfo.get('account_id') + "_" + "distribution",
             receiver=False
         )
     ])
