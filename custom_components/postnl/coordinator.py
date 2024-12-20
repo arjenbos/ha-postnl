@@ -70,9 +70,11 @@ class PostNLCoordinator(DataUpdateCoordinator):
                     key=shipment.get('key'),
                     name=shipment.get('title'),
                     url=shipment.get('detailsUrl'),
+                    shipment_type=shipment.get('shipmentType'),
                     status_message="Pakket is bezorgd",
                     delivered=shipment.get('delivered'),
-                    delivery_date=shipment.get('deliveredTimeStamp')
+                    delivery_date=shipment.get('deliveredTimeStamp'),
+                    delivery_address_type=shipment.get('deliveryAddressType')
                 )
 
             track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace,
@@ -113,9 +115,11 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 key=shipment.get('key'),
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
+                shipment_type=shipment.get('shipmentType'),
                 status_message=colli.get('statusPhase', {}).get('message', "Unknown"),
                 delivered=shipment.get('delivered'),
                 delivery_date=shipment.get('deliveredTimeStamp'),
+                delivery_address_type=shipment.get('deliveryAddressType'),
                 planned_date=planned_date,
                 planned_from=planned_from,
                 planned_to=planned_to,
