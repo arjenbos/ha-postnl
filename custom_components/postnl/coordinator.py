@@ -75,45 +75,44 @@ class PostNLCoordinator(DataUpdateCoordinator):
                     delivery_date=shipment.get('deliveredTimeStamp')
                 )
 
-            track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace,
-                                                                             shipment['key'])
+            track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace, shipment['key'])
 
-            if not track_and_trace_details.get('colli'):
-                _LOGGER.debug('No colli found.')
+            if not track_and_trace_details or 'colli' not in track_and_trace_details:
+                _LOGGER.debug('No colli data found in track and trace details.')
                 _LOGGER.debug(track_and_trace_details)
-
-            colli = track_and_trace_details.get('colli', {}).get(shipment['barcode'], {})
+                colli = None
+            else:
+                colli = track_and_trace_details['colli'].get(shipment['barcode'], None)
 
             if colli:
-                if colli.get("routeInformation"):
-                    route_information = colli.get("routeInformation")
-                    planned_date = route_information.get("plannedDeliveryTime")
-                    planned_from = route_information.get("plannedDeliveryTimeWindow", {}).get("startDateTime")
-                    planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get('endDateTime')
-                    expected_datetime = route_information.get('expectedDeliveryTime')
-                elif colli.get('eta'):
-                    planned_date = colli.get('eta', {}).get('start')
-                    planned_from = colli.get('eta', {}).get('start')
-                    planned_to = colli.get('eta', {}).get('end')
-                    expected_datetime = None
+                route_information = colli.get("routeInformation", None)
+                if route_information:
+                    planned_date = route_information.get("plannedDeliveryTime", None)
+                    planned_from = route_information.get("plannedDeliveryTimeWindow", {}).get("startDateTime", None)
+                    planned_to = route_information.get("plannedDeliveryTimeWindow", {}).get("endDateTime", None)
+                    expected_datetime = route_information.get("expectedDeliveryTime", None)
                 else:
+                    _LOGGER.debug("Route information is None, using fallback values.")
                     planned_date = shipment.get('deliveryWindowFrom', None)
                     planned_from = shipment.get('deliveryWindowFrom', None)
                     planned_to = shipment.get('deliveryWindowTo', None)
                     expected_datetime = None
+
+                status_phase = colli.get('statusPhase', None)
+                status_message = status_phase.get('message', "Unknown") if isinstance(status_phase, dict) else "Unknown"
             else:
-                _LOGGER.debug('Barcode not found in track and trace details.')
-                _LOGGER.debug(track_and_trace_details)
+                _LOGGER.debug('Colli is None, using fallback values from shipment data.')
                 planned_date = shipment.get('deliveryWindowFrom', None)
                 planned_from = shipment.get('deliveryWindowFrom', None)
                 planned_to = shipment.get('deliveryWindowTo', None)
                 expected_datetime = None
+                status_message = "Unknown"
 
             return Package(
                 key=shipment.get('key'),
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
-                status_message=colli.get('statusPhase', {}).get('message', "Unknown"),
+                status_message=status_message,
                 delivered=shipment.get('delivered'),
                 delivery_date=shipment.get('deliveredTimeStamp'),
                 planned_date=planned_date,
