@@ -84,6 +84,8 @@ class PostNLCoordinator(DataUpdateCoordinator):
 
             colli = track_and_trace_details.get('colli', {}).get(shipment['barcode'], {})
 
+            status_message = "Unknown"
+
             if colli:
                 if colli.get("routeInformation"):
                     route_information = colli.get("routeInformation")
@@ -101,6 +103,8 @@ class PostNLCoordinator(DataUpdateCoordinator):
                     planned_from = shipment.get('deliveryWindowFrom', None)
                     planned_to = shipment.get('deliveryWindowTo', None)
                     expected_datetime = None
+
+                status_message = colli.get('statusPhase', {}).get('message', "Unknown")
             else:
                 _LOGGER.debug('Barcode not found in track and trace details.')
                 _LOGGER.debug(track_and_trace_details)
@@ -113,7 +117,7 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 key=shipment.get('key'),
                 name=shipment.get('title'),
                 url=shipment.get('detailsUrl'),
-                status_message=colli.get('statusPhase', {}).get('message', "Unknown"),
+                status_message=status_message,
                 delivered=shipment.get('delivered'),
                 delivery_date=shipment.get('deliveredTimeStamp'),
                 planned_date=planned_date,
