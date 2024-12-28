@@ -17,11 +17,17 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up the PostNL sensor platform."""
+    _LOGGER.debug("Setting up PostNL sensors")
 
     coordinator = PostNLCoordinator(hass)
-
     await coordinator.async_config_entry_first_refresh()
-    userinfo = hass.data[DOMAIN][entry.entry_id]['userinfo']
+    
+    userinfo = hass.data[DOMAIN][entry.entry_id].get("userinfo", {})
+    if not userinfo:
+        _LOGGER.error("No userinfo found for PostNL entry")
+        return
+    
+    _LOGGER.debug("Userinfo loaded: %s", userinfo)
 
     async_add_entities([
         PostNLDelivery(
@@ -38,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             receiver=False
         )
     ])
-
+    _LOGGER.debug("PostNL sensors added")
 
 class PostNLDelivery(CoordinatorEntity, Entity):
     def __init__(self, coordinator, postnl_userinfo, unique_id, name, receiver: bool = True):
