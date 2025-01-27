@@ -23,8 +23,8 @@ class OAuth2Impl(AuthImplementation):
     code_verifier: str | None
 
     def __init__(self, hass: HomeAssistant, auth_domain: str, credential: ClientCredential,
-                 authorization_server: AuthorizationServer, code_challenge: str | None, code_verifier: str | None) -> None:
-
+                 authorization_server: AuthorizationServer, code_challenge: str | None,
+                 code_verifier: str | None) -> None:
         super().__init__(hass, auth_domain, credential, authorization_server)
 
         self.code_verifier = code_verifier
@@ -53,8 +53,9 @@ class OAuth2Impl(AuthImplementation):
             }
         )
 
+
 async def async_get_auth_implementation(
-    hass: HomeAssistant, auth_domain: str, credential: ClientCredential
+        hass: HomeAssistant, auth_domain: str, credential: ClientCredential
 ) -> config_entry_oauth2_flow.AbstractOAuth2Implementation:
     """Return auth implementation for a custom auth implementation."""
 

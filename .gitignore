@@ -10,3 +10,4 @@ env
 coverage.xml
 .secrets
 .pytest_cache
+node_modules
