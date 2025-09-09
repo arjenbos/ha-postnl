@@ -4,8 +4,8 @@ A custom integration for PostNL.
 ## Install integration
 - Download the browser extension and install it.
   - You can find the extension here: https://github.com/arjenbos/ha-postnl-browser-extensions
-- Add the repository to HACS.
-- Install the integration via HACS.
+- Add this `git repository` as a `custom repositories` to HACS.
+- Download the integration via HACS to make it available to HASS.
 - Add the integration:
   - Name: whatever you like
   - Client ID: whatever you like (will be ignored).
