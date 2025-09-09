@@ -16,4 +16,4 @@ A custom integration for PostNL.
 - Done! You only need to install the lovelace.
 
 ## Install lovelace
-- Go to https://github.com/peternijssen/lovelace-postnl-card. The repository is archived, however you can still use the lovelace.
+- Go to https://github.com/arjenbos/lovelace-postnl-card repository is archived, however you can still use the lovelace.
