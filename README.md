@@ -15,5 +15,8 @@ A custom integration for PostNL.
     - If you're already logged in, then it will redirect you back to Home Assistant oAuth2 callback (check your Home Assistant URL!).
 - Done! You only need to install the lovelace.
 
-## Install lovelace
-- Go to https://github.com/peternijssen/lovelace-postnl-card. The repository is archived, however you can still use the lovelace.
+## Install a lovelace
+There are currently two options:
+
+- https://github.com/peternijssen/lovelace-postnl-card - the repository is archived, however you can still use the lovelace.
+- https://github.com/jimz011/hki-postnl-card
