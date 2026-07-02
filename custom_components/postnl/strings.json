@@ -1,5 +1,16 @@
 {
     "application_credentials": {
         "description": "IMPORTANT: installing this integration is only possible if you use the Chrome extension (see Github repo). You can just put in random data in the Client ID and Client secret fields, the integration ignores the information."
+    },
+    "config_flow": {
+        "step": {
+            "reauth_confirm": {
+                "title": "Opnieuw inloggen bij PostNL",
+                "description": "Je PostNL-sessie is verlopen. Klik op Verzenden om opnieuw in te loggen."
+            }
+        },
+        "abort": {
+            "reauth_successful": "Opnieuw inloggen geslaagd"
+        }
     }
 }

@@ -1,0 +1,13 @@
+{
+    "config": {
+        "step": {
+            "reauth_confirm": {
+                "title": "Opnieuw inloggen bij PostNL",
+                "description": "Je PostNL-sessie is verlopen. Klik op Verzenden om opnieuw in te loggen."
+            }
+        },
+        "abort": {
+            "reauth_successful": "Opnieuw inloggen geslaagd"
+        }
+    }
+}

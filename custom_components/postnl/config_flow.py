@@ -39,8 +39,10 @@ class OAuth2FlowHandler(
     async def async_oauth_create_entry(self, data: dict) -> dict:
         """Create an oauth config entry or update existing entry for reauth."""
         if self.reauth_entry:
-            self.hass.config_entries.async_update_entry(self.reauth_entry, data=data)
+            self.hass.config_entries.async_update_entry(
+                self.reauth_entry, title="PostNL", data=data
+            )
             await self.hass.config_entries.async_reload(self.reauth_entry.entry_id)
             return self.async_abort(reason="reauth_successful")
 
-        return await super().async_oauth_create_entry(data)
+        return self.async_create_entry(title="PostNL", data=data)

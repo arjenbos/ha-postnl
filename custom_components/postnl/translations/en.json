@@ -1,0 +1,13 @@
+{
+    "config": {
+        "step": {
+            "reauth_confirm": {
+                "title": "Re-authenticate with PostNL",
+                "description": "Your PostNL session has expired. Click Submit to log in again."
+            }
+        },
+        "abort": {
+            "reauth_successful": "Re-authentication was successful"
+        }
+    }
+}
