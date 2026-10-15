@@ -1,0 +1,54 @@
+# Progress tracking for this custom integration; no official tier is claimed.
+rules:
+  action-setup:
+    status: exempt
+    comment: The integration does not register service actions.
+  appropriate-polling:
+    status: todo
+    comment: Polling remains at 90 seconds; upstream rate limits need independent verification.
+  brands:
+    status: todo
+    comment: A local custom integration icon exists; Core brands acceptance is not verified.
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency:
+    status: exempt
+    comment: No additional third-party requirements beyond Home Assistant itself.
+  docs-actions:
+    status: exempt
+    comment: The integration does not register service actions.
+  docs-conditions:
+    status: exempt
+    comment: The integration does not provide custom conditions.
+  docs-triggers:
+    status: exempt
+    comment: The integration does not provide custom triggers.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+  action-exceptions:
+    status: exempt
+    comment: The integration does not register service actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage: done
+  diagnostics: done
+  entity-translations: done
+  exception-translations: done
+  async-dependency: done
+  inject-websession: done
+  strict-typing: done

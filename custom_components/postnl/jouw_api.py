@@ -1,33 +1,18 @@
-import logging
+"""Asynchronous PostNL tracking requests."""
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
+from urllib.parse import quote
 
-_LOGGER = logging.getLogger(__name__)
+from .api import JsonObject, PostNLAPI
 
 
-class PostNLJouwAPI:
-    base_url: str = "https://jouw.postnl.nl/track-and-trace/"
+class PostNLJouwAPI(PostNLAPI):
+    """Retrieve tracking information without owning a separate session."""
 
-    def __init__(self, access_token: str):
-        self.client = requests.Session()
-        self.client.mount(
-            prefix='https://',
-            adapter=HTTPAdapter(
-                max_retries=Retry(
-                    total=5,
-                    backoff_factor=3
-                ),
-                pool_maxsize=25,
-                pool_block=True
-            )
+    base_url = "https://jouw.postnl.nl/track-and-trace"
+
+    async def track_and_trace(self, key: str) -> JsonObject:
+        """Return tracking details for a single shipment."""
+        return await self.request(
+            "GET",
+            f"{self.base_url}/api/trackAndTrace/{quote(key, safe='')}?language=nl",
         )
-        self.client.headers = {
-            "Authorization": "Bearer " + access_token
-        }
-
-    def track_and_trace(self, key):
-        response = self.client.get(self.base_url + "/api/trackAndTrace/" + key + "?language=nl")
-
-        return response.json()

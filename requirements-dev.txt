@@ -1,2 +1,4 @@
-homeassistant
-gql
+homeassistant==2026.10.0
+pytest-homeassistant-custom-component==0.13.371
+ruff==0.15.13
+mypy==2.4.0
