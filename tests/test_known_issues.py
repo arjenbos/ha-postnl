@@ -1,31 +1,22 @@
-"""Desired behavior for confirmed bugs, pending separate implementation fixes.
-
-Strict xfail markers keep these defects visible without accepting their current
-behavior as the contract. Unexpected passes fail CI so fixes remove the markers.
-Only assertion failures are expected; unexpected exception types still fail.
-"""
+"""Regression tests for the defects found in the development review."""
 
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-import requests
 from aiohttp import ClientConnectionError
-from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.postnl.const import DOMAIN, POSTNL_TOKEN_URL
+from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 
 from .helpers import finish_oauth, sensor_entity_id, start_oauth
 
 
-@pytest.mark.xfail(
-    strict=True, raises=AssertionError, reason="Review #1: setup logs the bearer token"
-)
 async def test_access_token_is_not_logged(
     hass: HomeAssistant,
     application_credentials: None,
@@ -40,11 +31,6 @@ async def test_access_token_is_not_logged(
     assert config_entry.data["token"]["access_token"] not in caplog.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Review #2: ClientConnectionError has no status attribute",
-)
 async def test_oauth_connection_failure_is_retryable(
     hass: HomeAssistant,
     application_credentials: None,
@@ -57,11 +43,6 @@ async def test_oauth_connection_failure_is_retryable(
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Review #4: first refresh is performed in platform setup",
-)
 async def test_first_refresh_failure_retries_entry(
     hass: HomeAssistant,
     application_credentials: None,
@@ -69,17 +50,12 @@ async def test_first_refresh_failure_retries_entry(
     mock_api: MagicMock,
 ) -> None:
     """Retry the whole entry if its initial shipment fetch fails."""
-    mock_api.shipments.side_effect = requests.ConnectionError("offline")
+    mock_api.shipments.side_effect = ClientConnectionError("offline")
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Review #5: account duplicates are not rejected",
-)
 async def test_duplicate_account_is_rejected(
     hass: HomeAssistant,
     application_credentials: None,
@@ -99,11 +75,6 @@ async def test_duplicate_account_is_rejected(
     assert result["reason"] == "already_configured"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Review #5: reauth does not check account identity",
-)
 async def test_reauth_rejects_different_account(
     hass: HomeAssistant,
     application_credentials: None,
@@ -138,11 +109,6 @@ async def test_reauth_rejects_different_account(
     assert config_entry.data["token"]["access_token"] == token["access_token"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Review #16: null statusPhase crashes transformation",
-)
 async def test_null_status_uses_unknown_fallback(
     hass: HomeAssistant,
     application_credentials: None,

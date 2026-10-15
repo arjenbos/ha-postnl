@@ -1,22 +1,22 @@
 """Home Assistant fixtures and mocked PostNL service boundaries."""
 
-import json
-import time
 from collections.abc import Generator
 from copy import deepcopy
+import json
 from pathlib import Path
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.postnl.const import DOMAIN
 from homeassistant.components.application_credentials import (
     ClientCredential,
     async_import_client_credential,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.postnl.const import DOMAIN
 
 
 @pytest.fixture(autouse=True)
@@ -53,6 +53,7 @@ def config_entry(hass: HomeAssistant, token: dict) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="PostNL",
+        unique_id="test-account",
         data={"auth_implementation": DOMAIN, "token": token},
     )
     entry.add_to_hass(hass)

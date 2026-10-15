@@ -4,12 +4,12 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from gql.transport.exceptions import TransportQueryError
-from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.postnl.api import PostNLAuthenticationError
 from custom_components.postnl.const import POSTNL_TOKEN_URL
+from homeassistant.core import HomeAssistant
 
 
 @pytest.mark.parametrize("expired", [True, False])
@@ -32,7 +32,11 @@ async def test_refresh_token(
             },
         )
     else:
-        mock_api.profile.side_effect = [TransportQueryError("Token expired"), {}]
+        mock_api.profile.side_effect = [
+            PostNLAuthenticationError("Token expired"),
+            {},
+            {},
+        ]
     aioclient_mock.post(
         POSTNL_TOKEN_URL, json={**token, "access_token": "refreshed-token"}
     )

@@ -1,81 +1,116 @@
-"""Test the bundled PostNL clients at their HTTP boundaries."""
+"""Test asynchronous PostNL requests at their HTTP boundaries."""
 
-import re
+from unittest.mock import patch
 
+from aiohttp import ClientConnectionError
 import pytest
-from gql.transport.exceptions import TransportQueryError
-from requests_mock import Mocker
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.postnl.api import (
+    REQUEST_TIMEOUT,
+    PostNLAuthenticationError,
+    PostNLConnectionError,
+    PostNLDataError,
+)
 from custom_components.postnl.graphql import PostNLGraphql
 from custom_components.postnl.jouw_api import PostNLJouwAPI
 from custom_components.postnl.login_api import PostNLLoginAPI
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+USERINFO_URL = f"{PostNLLoginAPI.base_url}/profiles/oidc/userinfo"
 
 
-@pytest.mark.parametrize(
-    ("client_class", "method", "args", "url", "payload"),
-    [
-        (
-            PostNLLoginAPI,
-            "userinfo",
-            (),
-            "https://login.postnl.nl/101112a0-4a0f-4bbb-8176-2f1b2d370d7c/profiles/oidc/userinfo",
-            {"account_id": "test-account"},
-        ),
-        (
-            PostNLJouwAPI,
-            "track_and_trace",
-            ("test-key",),
-            "https://jouw.postnl.nl/track-and-trace/api/trackAndTrace/test-key?language=nl",
-            {"colli": {}},
-        ),
-    ],
-)
-def test_rest_client(
-    requests_mock: Mocker,
-    client_class: type[PostNLLoginAPI] | type[PostNLJouwAPI],
-    method: str,
-    args: tuple,
-    url: str,
-    payload: dict,
+@pytest.mark.parametrize("tracking", [False, True])
+async def test_rest_client(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, tracking: bool
 ) -> None:
-    """Send authentication and return the decoded JSON response."""
-    # Accept normalized paths as well as the existing duplicate separators.
-    pattern = (
-        re.escape(url).replace("/profiles/", "/+profiles/").replace("/api/", "/+api/")
-    )
-    requests_mock.get(re.compile(pattern), json=payload)
-    client = client_class("test-token")
-    try:
-        assert getattr(client, method)(*args) == payload
-    finally:
-        client.client.close()
-    assert requests_mock.last_request.headers["Authorization"] == "Bearer test-token"
+    """Send authentication, set bounded timeouts, and preserve session ownership."""
+    session = async_get_clientsession(hass)
+    if tracking:
+        url = f"{PostNLJouwAPI.base_url}/api/trackAndTrace/test%2Fkey?language=nl"
+        client = PostNLJouwAPI(session, "test-token")
+        payload = {"colli": {}}
+    else:
+        url = USERINFO_URL
+        client = PostNLLoginAPI(session, "test-token")
+        payload = {"account_id": "test-account"}
+    aioclient_mock.get(url, json=payload)
+    with patch.object(session, "request", wraps=session.request) as request:
+        result = (
+            await client.track_and_trace("test/key")
+            if tracking
+            else await client.userinfo()
+        )
+    assert result == payload
+    assert request.call_args.kwargs["headers"]["Authorization"] == "Bearer test-token"
+    assert request.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
+    assert not session.closed
 
 
 @pytest.mark.parametrize(
-    ("method", "field", "payload"),
+    ("response", "exception"),
     [
-        ("profile", "profile", {"profile": {"username": "test@example.com"}}),
+        ({"status": 401}, PostNLAuthenticationError),
+        ({"status": 403}, PostNLAuthenticationError),
+        ({"status": 429}, PostNLConnectionError),
+        ({"status": 500}, PostNLConnectionError),
+        ({"exc": TimeoutError()}, PostNLConnectionError),
+        ({"exc": ClientConnectionError()}, PostNLConnectionError),
         (
-            "shipments",
-            "trackedShipments",
-            {"trackedShipments": {"receiverShipments": [], "senderShipments": []}},
+            {"text": "not-json", "headers": {"Content-Type": "application/json"}},
+            PostNLDataError,
         ),
+        ({"json": []}, PostNLDataError),
+        ({"json": {"error": "invalid_token"}}, PostNLAuthenticationError),
+        ({"json": {"error": "temporarily_unavailable"}}, PostNLDataError),
     ],
 )
-def test_graphql_client(
-    requests_mock: Mocker, method: str, field: str, payload: dict
+async def test_rest_failures(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    response: dict,
+    exception: type[Exception],
+) -> None:
+    """Never treat an HTTP or payload error as valid account data."""
+    aioclient_mock.get(USERINFO_URL, **response)
+    with pytest.raises(exception):
+        await PostNLLoginAPI(async_get_clientsession(hass), "test-token").userinfo()
+
+
+@pytest.mark.parametrize("profile", [True, False])
+async def test_graphql_client(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, profile: bool
 ) -> None:
     """Submit the expected operation and unwrap GraphQL data."""
-    requests_mock.post(PostNLGraphql.endpoint, json={"data": payload})
-    client = PostNLGraphql("test-token")
-    assert getattr(client, method)() == payload
-    assert requests_mock.last_request.headers["Authorization"] == "Bearer test-token"
-    assert field in requests_mock.last_request.json()["query"]
+    field = "profile" if profile else "trackedShipments"
+    payload = {field: {}}
+    aioclient_mock.post(PostNLGraphql.endpoint, json={"data": payload})
+    client = PostNLGraphql(async_get_clientsession(hass), "test-token")
+    assert (await client.profile() if profile else await client.shipments()) == payload
+    assert field in aioclient_mock.mock_calls[0][2]["query"]
 
 
-def test_graphql_query_error(requests_mock: Mocker) -> None:
-    """Expose provider query errors to the integration's error handling."""
-    requests_mock.post(PostNLGraphql.endpoint, json={"errors": [{"message": "denied"}]})
-    with pytest.raises(TransportQueryError, match="denied"):
-        PostNLGraphql("test-token").shipments()
+@pytest.mark.parametrize(
+    ("payload", "exception"),
+    [
+        ({"errors": [{"message": "denied"}]}, PostNLDataError),
+        (
+            {"errors": [{"extensions": {"code": "UNAUTHENTICATED"}}]},
+            PostNLAuthenticationError,
+        ),
+        ({"errors": "bad response"}, PostNLDataError),
+        ({"errors": [None]}, PostNLDataError),
+        ({"data": None}, PostNLDataError),
+    ],
+)
+async def test_graphql_errors(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    payload: dict,
+    exception: type[Exception],
+) -> None:
+    """Only explicit authentication errors trigger a credential refresh."""
+    aioclient_mock.post(PostNLGraphql.endpoint, json=payload)
+    with pytest.raises(exception):
+        await PostNLGraphql(async_get_clientsession(hass), "test-token").shipments()

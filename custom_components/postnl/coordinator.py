@@ -1,146 +1,168 @@
+"""Coordinate bounded, asynchronous PostNL shipment updates."""
+
 import asyncio
-import logging
+from dataclasses import replace
 from datetime import timedelta
+import logging
+from typing import Any
 
-import requests
+from aiohttp import ClientError
+
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from . import AsyncConfigEntryAuth, PostNLGraphql
-from .const import DOMAIN
+from .account import Account
+from .api import JsonObject, PostNLAuthenticationError, PostNLDataError, PostNLError
+from .auth import AsyncConfigEntryAuth
 from .jouw_api import PostNLJouwAPI
 from .structs.package import Package
 
 _LOGGER = logging.getLogger(__name__)
 
-class PostNLCoordinator(DataUpdateCoordinator):
-    data: dict[str, list[Package]]
-    graphq_api: PostNLGraphql
-    jouw_api: PostNLJouwAPI
 
-    def __init__(self, hass: HomeAssistant) -> None:
-        """Initialize PostNL coordinator."""
+def object_or_empty(value: Any) -> JsonObject:
+    """Accept nullable optional objects but reject malformed responses."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise PostNLDataError("PostNL returned an invalid object")
+    return value
+
+
+def optional_text(data: JsonObject, key: str) -> str | None:
+    """Validate an optional text field from the service."""
+    value = data.get(key)
+    if value is not None and not isinstance(value, str):
+        raise PostNLDataError("PostNL returned an invalid text field")
+    return value
+
+
+class PostNLCoordinator(DataUpdateCoordinator[dict[str, list[Package]]]):
+    """Maintain one shipment snapshot shared by both package sensors."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry[PostNLCoordinator],
+        auth: AsyncConfigEntryAuth,
+        account: Account,
+    ) -> None:
+        """Initialize reusable API clients and an explicit entry lifecycle."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name="PostNL",
             update_interval=timedelta(seconds=90),
+            always_update=False,
         )
-        _LOGGER.debug("PostNLCoordinator initialized with update interval: %s", self.update_interval)
-        
+        self.auth = auth
+        self.account = account
+        self.jouw_api = PostNLJouwAPI(auth.graphql.session, auth.access_token)
+        self._tracking_limit = asyncio.Semaphore(4)
+
     async def _async_update_data(self) -> dict[str, list[Package]]:
-        _LOGGER.debug("Starting data update for PostNL.")
+        """Fetch a complete snapshot or let the coordinator report one failure."""
         try:
-            auth: AsyncConfigEntryAuth = self.hass.data[DOMAIN][self.config_entry.entry_id]['auth']
-            _LOGGER.debug("Authenticating with PostNL API.")
-            await auth.check_and_refresh_token()
-
-            self.graphq_api = PostNLGraphql(auth.access_token)
-            self.jouw_api = PostNLJouwAPI(auth.access_token)
-
-            data: dict[str, list[Package]] = {
-                'receiver': [],
-                'sender': []
-            }
-
-            shipments = await self.hass.async_add_executor_job(self.graphq_api.shipments)
-
-            _LOGGER.debug("Shipments fetched: %s", shipments)
-            receiver_shipments = [self.transform_shipment(shipment) for shipment in
-                                  shipments.get('trackedShipments', {}).get('receiverShipments', [])]
-            data['receiver'] = await asyncio.gather(*receiver_shipments)
-
-            sender_shipments = [self.transform_shipment(shipment) for shipment in
-                                shipments.get('trackedShipments', {}).get('senderShipments', [])]
-            data['sender'] = await asyncio.gather(*sender_shipments)
-
-            _LOGGER.info("Updated PostNL data: %d receiver packages, %d sender packages.", len(data['receiver']), len(data['sender']))
-
-            return data
-        except requests.exceptions.RequestException as exception:
-            _LOGGER.error("Network error during PostNL data update: %s", exception, exc_info=True)
-            raise UpdateFailed("Unable to update PostNL data") from exception
-
-    async def transform_shipment(self, shipment) -> Package:
-        _LOGGER.debug('Updating %s', shipment.get('key'))
-
-        try:
-            if shipment.get('delivered'):
-                _LOGGER.debug('%s already delivered, no need to call jouw.postnl.', shipment.get('key'))
-
-                return Package(
-                    key=shipment.get('key'),
-                    name=shipment.get('title'),
-                    url=shipment.get('detailsUrl'),
-                    shipment_type=shipment.get('shipmentType'),
-                    status_message="Pakket is bezorgd",
-                    delivered=shipment.get('delivered'),
-                    delivery_date=shipment.get('deliveredTimeStamp'),
-                    delivery_address_type=shipment.get('deliveryAddressType')
+            async with asyncio.timeout(60):
+                await self.auth.check_and_refresh_token()
+                self.jouw_api.access_token = self.auth.access_token
+                shipments = await self.auth.graphql.shipments()
+                if "trackedShipments" not in shipments:
+                    raise PostNLDataError("PostNL did not return shipment data")
+                tracked = object_or_empty(shipments["trackedShipments"])
+                data: dict[str, list[Package]] = {}
+                for role in ("receiver", "sender"):
+                    items = tracked.get(f"{role}Shipments")
+                    if items is None:
+                        items = []
+                    if not isinstance(items, list) or not all(
+                        isinstance(item, dict) for item in items
+                    ):
+                        raise PostNLDataError(
+                            "PostNL returned an invalid shipment list"
+                        )
+                    results = await asyncio.gather(
+                        *(self.transform_shipment(item) for item in items),
+                        return_exceptions=True,
+                    )
+                    packages: list[Package] = []
+                    for result in results:
+                        if isinstance(result, BaseException):
+                            raise result
+                        packages.append(result)
+                    data[role] = packages
+                _LOGGER.debug(
+                    "Updated %d incoming and %d outgoing packages",
+                    len(data["receiver"]),
+                    len(data["sender"]),
                 )
+                return data
+        except PostNLAuthenticationError as err:
+            raise ConfigEntryAuthFailed(
+                translation_domain="postnl", translation_key="invalid_auth"
+            ) from err
+        except (PostNLError, ClientError, TimeoutError) as err:
+            raise UpdateFailed(
+                translation_domain="postnl", translation_key="cannot_connect"
+            ) from err
 
-            _LOGGER.debug("Fetching Track and Trace details for shipment %s.", shipment['key'])
-            track_and_trace_details = await self.hass.async_add_executor_job(self.jouw_api.track_and_trace,
-                                                                             shipment['key'])
-
-            if not track_and_trace_details.get('colli'):
-                _LOGGER.warning("No colli found for shipment %s. Details: %s", shipment['key'], track_and_trace_details)
-
-            colli = track_and_trace_details.get('colli', {}).get(shipment['barcode'], {})
-
-            status_message = "Unknown"
-            expected_datetime = None
-            expected_from = None
-            expected_to = None
-            last_update = None
-
-            if colli:
-                _LOGGER.debug("Colli details found for shipment %s: %s", shipment['key'], colli)
-                if colli.get('routeInformation'):
-                    route_information = colli.get('routeInformation')
-                    planned_date = route_information.get('plannedDeliveryTime')
-                    planned_window = route_information.get('plannedDeliveryTimeWindow') or {}
-                    planned_from = planned_window.get('startDateTime')
-                    planned_to = planned_window.get('endDateTime')
-                    expected_datetime = route_information.get('expectedDeliveryTime')
-                    expected_window = route_information.get('expectedDeliveryTimeWindow') or {}
-                    expected_from = expected_window.get('startDateTime')
-                    expected_to = expected_window.get('endDateTime')
-                    last_update = route_information.get('lastUpdate')
-                elif colli.get('eta'):
-                    planned_date = colli.get('eta', {}).get('start')
-                    planned_from = colli.get('eta', {}).get('start')
-                    planned_to = colli.get('eta', {}).get('end')
-                else:
-                    planned_date = shipment.get('deliveryWindowFrom', None)
-                    planned_from = shipment.get('deliveryWindowFrom', None)
-                    planned_to = shipment.get('deliveryWindowTo', None)
-
-                status_message = colli.get('statusPhase', {}).get('message', "Unknown")
-            else:
-                _LOGGER.warning("Barcode not found in colli details for shipment %s.", shipment['key'])
-                planned_date = shipment.get('deliveryWindowFrom', None)
-                planned_from = shipment.get('deliveryWindowFrom', None)
-                planned_to = shipment.get('deliveryWindowTo', None)
-
-            return Package(
-                key=shipment.get('key'),
-                name=shipment.get('title'),
-                url=shipment.get('detailsUrl'),
-                shipment_type=shipment.get('shipmentType'),
-                status_message=status_message,
-                delivered=shipment.get('delivered'),
-                delivery_date=shipment.get('deliveredTimeStamp'),
-                delivery_address_type=shipment.get('deliveryAddressType'),
-                planned_date=planned_date,
-                planned_from=planned_from,
-                planned_to=planned_to,
-                expected_datetime=expected_datetime,
-                expected_from=expected_from,
-                expected_to=expected_to,
-                last_update=last_update
+    async def transform_shipment(self, shipment: JsonObject) -> Package:
+        """Normalize optional tracking details into the package-card contract."""
+        key = shipment.get("key")
+        if not isinstance(key, str) or not key:
+            raise PostNLDataError("PostNL returned a shipment without a key")
+        delivered = shipment.get("delivered")
+        if not isinstance(delivered, bool):
+            raise PostNLDataError("PostNL returned an invalid delivery flag")
+        package = Package(
+            key=key,
+            name=optional_text(shipment, "title") or "",
+            url=optional_text(shipment, "detailsUrl") or "",
+            shipment_type=optional_text(shipment, "shipmentType") or "",
+            status_message="Pakket is bezorgd" if delivered else "Unknown",
+            delivered=delivered,
+            delivery_date=optional_text(shipment, "deliveredTimeStamp"),
+            delivery_address_type=optional_text(shipment, "deliveryAddressType"),
+        )
+        if delivered:
+            return package
+        barcode = shipment.get("barcode")
+        if not isinstance(barcode, str) or not barcode:
+            raise PostNLDataError("PostNL returned a shipment without a barcode")
+        async with self._tracking_limit:
+            details = await self.jouw_api.track_and_trace(key)
+        colli = object_or_empty(object_or_empty(details.get("colli")).get(barcode))
+        route = object_or_empty(colli.get("routeInformation"))
+        eta = object_or_empty(colli.get("eta"))
+        planned_window = object_or_empty(route.get("plannedDeliveryTimeWindow"))
+        expected_window = object_or_empty(route.get("expectedDeliveryTimeWindow"))
+        if route:
+            planned_date = optional_text(route, "plannedDeliveryTime")
+            planned_from = optional_text(planned_window, "startDateTime")
+            planned_to = optional_text(planned_window, "endDateTime")
+        elif eta:
+            planned_date = planned_from = optional_text(eta, "start")
+            planned_to = optional_text(eta, "end")
+        else:
+            planned_date = planned_from = optional_text(shipment, "deliveryWindowFrom")
+            planned_to = optional_text(shipment, "deliveryWindowTo")
+        return replace(
+            package,
+            status_message=optional_text(
+                object_or_empty(colli.get("statusPhase")), "message"
             )
-        except requests.exceptions.RequestException as exception:
-            _LOGGER.error("Error fetching Track and Trace details for shipment %s: %s", shipment.get('key'), exception, exc_info=True)
-            raise UpdateFailed("Unable to update PostNL data") from exception
+            or "Unknown",
+            planned_date=planned_date,
+            planned_from=planned_from,
+            planned_to=planned_to,
+            expected_datetime=optional_text(route, "expectedDeliveryTime"),
+            expected_from=optional_text(expected_window, "startDateTime"),
+            expected_to=optional_text(expected_window, "endDateTime"),
+            last_update=optional_text(route, "lastUpdate"),
+        )
+
+
+type PostNLConfigEntry = ConfigEntry[PostNLCoordinator]

@@ -2,16 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
+from aiohttp import ClientConnectionError
 import pytest
-import requests
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from urllib3.exceptions import MaxRetryError
 
 from custom_components.postnl.const import DOMAIN
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .helpers import sensor_entity_id
 
@@ -48,9 +46,9 @@ async def test_setup_and_unload(
 @pytest.mark.parametrize(
     ("endpoint", "error"),
     [
-        ("profile", requests.ConnectionError("offline")),
-        ("userinfo", requests.Timeout("timeout")),
-        ("userinfo", MaxRetryError(None, "https://example.com")),
+        ("profile", ClientConnectionError("offline")),
+        ("userinfo", TimeoutError("timeout")),
+        ("userinfo", ClientConnectionError("offline")),
     ],
 )
 async def test_setup_connection_failure(

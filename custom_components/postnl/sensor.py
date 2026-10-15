@@ -1,128 +1,79 @@
-"""Sensor for PostNL packages."""
-import logging
+"""Sensors for incoming and outgoing PostNL packages."""
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from dataclasses import asdict
+from typing import Any
+
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
-from . import DOMAIN
-from .coordinator import PostNLCoordinator
-from .structs.package import Package
+from .const import DOMAIN
+from .coordinator import PostNLConfigEntry, PostNLCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+PARALLEL_UPDATES = 0
+
+SENSORS = (
+    SensorEntityDescription(
+        key="delivery",
+        translation_key="delivery",
+        native_unit_of_measurement="packages",
+        icon="mdi:package-variant-closed",
+    ),
+    SensorEntityDescription(
+        key="distribution",
+        translation_key="distribution",
+        native_unit_of_measurement="packages",
+        icon="mdi:package-variant-closed",
+    ),
+)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up the PostNL sensor platform."""
-    _LOGGER.debug("Setting up PostNL sensors")
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: PostNLConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Create sensors from the entry's validated coordinator."""
+    async_add_entities(
+        PostNLDelivery(entry.runtime_data, description) for description in SENSORS
+    )
 
-    coordinator = PostNLCoordinator(hass)
-    await coordinator.async_config_entry_first_refresh()
-    
-    userinfo = hass.data[DOMAIN][entry.entry_id].get("userinfo", {})
-    if not userinfo:
-        _LOGGER.error("No userinfo found for PostNL entry")
-        return
-    
-    _LOGGER.debug("Userinfo loaded: %s", userinfo)
 
-    async_add_entities([
-        PostNLDelivery(
-            coordinator=coordinator,
-            postnl_userinfo=userinfo,
-            unique_id= userinfo.get('account_id') + "_" + "delivery",
-            name="PostNL_delivery"
-        ),
-        PostNLDelivery(
-            coordinator=coordinator,
-            postnl_userinfo=userinfo,
-            name="PostNL_distribution",
-            unique_id=userinfo.get('account_id') + "_" + "distribution",
-            receiver=False
-        )
-    ])
-    _LOGGER.debug("PostNL sensors added")
+class PostNLDelivery(CoordinatorEntity[PostNLCoordinator], SensorEntity):
+    """Expose a package count and the existing package-card attributes."""
 
-class PostNLDelivery(CoordinatorEntity, Entity):
-    def __init__(self, coordinator, postnl_userinfo, unique_id, name, receiver: bool = True):
-        """Initialize the PostNL sensor."""
-        super().__init__(coordinator, context=name)
-        self.postnl_userinfo = postnl_userinfo
-        self._unique_id = unique_id
-        self._name: str = name
-        self._attributes: dict[str, list[Package]] = {
-            'enroute': [],
-            'delivered': [],
-        }
-        self._state = None
-        self.receiver: bool = receiver
-        self.handle_coordinator_data()
+    _attr_has_entity_name = True
 
-    @property
-    def unique_id(self) -> str | None:
-        """Return the unique id of the sensor."""
-        return self._unique_id
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the device info."""
-        return DeviceInfo(
-            identifiers={
-                (DOMAIN, self.postnl_userinfo.get('account_id'))
-            },
-            name=self.postnl_userinfo.get('email'),
+    def __init__(
+        self, coordinator: PostNLCoordinator, description: SensorEntityDescription
+    ) -> None:
+        """Initialize a sensor with the existing account-based unique ID."""
+        super().__init__(coordinator, context=description.key)
+        self.entity_description = description
+        self._role = "receiver" if description.key == "delivery" else "sender"
+        self._attr_unique_id = f"{coordinator.account.account_id}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.account.account_id)},
+            name=coordinator.account.email or "PostNL",
             manufacturer="PostNL",
         )
 
     @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
+    def native_value(self) -> int:
+        """Return the number of packages still in transit."""
+        return sum(
+            not package.delivered for package in self.coordinator.data[self._role]
+        )
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement of this entity, if any."""
-        return 'packages'
-
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        return self._attributes
-
-    @property
-    def icon(self):
-        """Icon to use in the frontend."""
-        return "mdi:package-variant-closed"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        _LOGGER.debug('Updating sensor %s', self.name)
-
-        self.handle_coordinator_data()
-
-        self.async_write_ha_state()
-
-    def handle_coordinator_data(self):
-        self._attributes['delivered'] = []
-        self._attributes['enroute'] = []
-
-        if self.receiver:
-            coordinator_data = self.coordinator.data['receiver']
-        else:
-            coordinator_data = self.coordinator.data['sender']
-
-        for package in coordinator_data:
-            if package.delivered:
-                self._attributes['delivered'].append(vars(package))
-            else:
-                self._attributes['enroute'].append(vars(package))
-
-        self._state = len(self._attributes['enroute'])
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Keep package payloads compatible with existing dashboard cards."""
+        packages = self.coordinator.data[self._role]
+        return {
+            "delivered": [asdict(package) for package in packages if package.delivered],
+            "enroute": [
+                asdict(package) for package in packages if not package.delivered
+            ],
+        }

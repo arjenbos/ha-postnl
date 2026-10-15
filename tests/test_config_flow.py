@@ -4,11 +4,8 @@ import base64
 import hashlib
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from aiohttp import ClientConnectionError
-from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from yarl import URL
@@ -21,8 +18,13 @@ from custom_components.postnl.const import (
     POSTNL_SCOPE,
     POSTNL_TOKEN_URL,
 )
+from homeassistant import config_entries
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 
 from .helpers import finish_oauth, start_oauth
+
+pytestmark = pytest.mark.usefixtures("mock_api")
 
 
 async def test_oauth_creates_entry(
@@ -76,8 +78,8 @@ async def test_missing_credentials(hass: HomeAssistant) -> None:
         ({"status": 500, "json": {}}, "oauth_failed"),
         ({"exc": ClientConnectionError()}, "oauth_failed"),
         ({"exc": TimeoutError()}, "oauth_timeout"),
-        ({"json": {"access_token": "invalid"}}, "oauth_error"),
-        ({"json": {"expires_in": "invalid"}}, "oauth_error"),
+        ({"json": {"access_token": "invalid"}}, "oauth_failed"),
+        ({"json": {"expires_in": "invalid"}}, "oauth_failed"),
     ],
 )
 async def test_oauth_failure(
@@ -134,8 +136,56 @@ async def test_reauth_updates_existing_entry(
         hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
     ) as reload_entry:
         result = await finish_oauth(hass, result)
+        await hass.async_block_till_done()
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert config_entry.data["token"]["access_token"] == "new-token"
     assert hass.config_entries.async_entries(DOMAIN) == [config_entry]
     reload_entry.assert_awaited_once_with(config_entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"access_token": None},
+        {"refresh_token": ""},
+        {"expires_in": None},
+        {"expires_in": "bad-expiry"},
+        {"expires_in": 0},
+    ],
+)
+async def test_invalid_token_does_not_leak_secrets(
+    hass: HomeAssistant,
+    application_credentials: None,
+    aioclient_mock: AiohttpClientMocker,
+    token: dict,
+    changes: dict,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Sanitize invalid token responses before the base flow can log them."""
+    aioclient_mock.post(POSTNL_TOKEN_URL, json={**token, **changes})
+    result = await finish_oauth(hass, await start_oauth(hass))
+    assert result["reason"] == "oauth_failed"
+    assert not hass.config_entries.async_entries(DOMAIN)
+    assert "test-access-token" not in caplog.text
+    assert "test-refresh-token" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"json": []},
+        {"text": "not-json", "headers": {"Content-Type": "application/json"}},
+    ],
+)
+async def test_invalid_token_json(
+    hass: HomeAssistant,
+    application_credentials: None,
+    aioclient_mock: AiohttpClientMocker,
+    response: dict,
+) -> None:
+    """Reject nonobject or invalid JSON token responses without crashing."""
+    aioclient_mock.post(POSTNL_TOKEN_URL, **response)
+    result = await finish_oauth(hass, await start_oauth(hass))
+    assert result["reason"] == "oauth_failed"
+    assert not hass.config_entries.async_entries(DOMAIN)

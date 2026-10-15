@@ -1,0 +1,65 @@
+{
+  "application_credentials": {
+    "description": "Install the browser extension linked in the integration documentation before signing in. PostNL uses a registered public OAuth client; the Client ID and Client secret fields are not used by this integration."
+  },
+  "config": {
+    "step": {
+      "pick_implementation": {
+        "title": "Connect PostNL",
+        "description": "Choose the PostNL credentials to use for sign-in.",
+        "data": {
+          "implementation": "Credentials"
+        },
+        "data_description": {
+          "implementation": "The application credentials registered for PostNL."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect PostNL",
+        "description": "Sign in again using the same PostNL account. Your existing devices, entities, and dashboard configuration will be kept."
+      }
+    },
+    "abort": {
+      "missing_credentials": "Add application credentials for PostNL before continuing.",
+      "missing_configuration": "No PostNL OAuth implementation is configured.",
+      "no_url_available": "Home Assistant needs a reachable callback URL. See {docs_url}.",
+      "authorize_url_timeout": "Timed out starting PostNL sign-in. Please try again.",
+      "oauth_timeout": "Timed out exchanging the authorization code. Please try again.",
+      "oauth_failed": "PostNL sign-in failed. Please try again.",
+      "oauth_unauthorized": "PostNL rejected the authorization code. Please sign in again.",
+      "oauth_error": "PostNL returned an invalid token response. Please try again.",
+      "user_rejected_authorize": "PostNL sign-in was cancelled: {error}.",
+      "reauth_successful": "PostNL was reconnected successfully.",
+      "already_configured": "This PostNL account is already configured.",
+      "wrong_account": "Sign in with the PostNL account that was originally configured.",
+      "account_identity_unknown": "The original account could not be identified safely. Remove this integration entry and add the intended account again.",
+      "cannot_connect": "Unable to connect to PostNL. Please try again later.",
+      "invalid_auth": "PostNL rejected authentication. Please sign in again.",
+      "invalid_response": "PostNL did not return valid account information. Please try again later."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "delivery": {
+        "name": "Delivery"
+      },
+      "distribution": {
+        "name": "Distribution"
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_auth": {
+      "message": "PostNL authentication expired or was rejected. Sign in again."
+    },
+    "cannot_connect": {
+      "message": "Unable to retrieve valid data from PostNL."
+    },
+    "wrong_account": {
+      "message": "The credentials belong to a different PostNL account."
+    },
+    "already_configured": {
+      "message": "This PostNL account is already configured."
+    }
+  }
+}

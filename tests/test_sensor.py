@@ -3,15 +3,16 @@
 from datetime import timedelta
 from unittest.mock import MagicMock
 
-import pytest
-import requests
+from aiohttp import ClientConnectionError
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.core import HomeAssistant
-from homeassistant.util import dt as dt_util
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
+
+from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from .helpers import sensor_entity_id
 
@@ -66,7 +67,7 @@ async def test_poll_failure_and_recovery(
     await setup_entry(hass, config_entry)
     endpoint = getattr(mock_api, failure_endpoint)
     original = endpoint.side_effect
-    endpoint.side_effect = requests.ConnectionError("offline")
+    endpoint.side_effect = ClientConnectionError("offline")
     freezer.tick(timedelta(seconds=100))
     await poll(hass)
     assert hass.states.get(sensor_entity_id(hass, "delivery")).state == "unavailable"

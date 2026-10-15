@@ -23,13 +23,13 @@ python3.14 -m venv --clear .venv
 Tests follow the [Home Assistant integration testing guidance](https://developers.home-assistant.io/docs/development_testing/):
 use `hass`, `MockConfigEntry`, the flow/config-entry managers, state machine, and
 entity/device registries. Integration tests mock PostNL service methods while
-running real OAuth, setup, coordinator, and sensor code. Client tests mock HTTP
-responses using `requests_mock`; OAuth token exchanges use `aioclient_mock`.
+running real OAuth, setup, coordinator, and sensor code. Client tests and OAuth token exchanges mock HTTP
+responses using `aioclient_mock`.
 Fixture payloads and credentials are synthetic. External network sockets are
 disabled for the entire suite; local Unix sockets remain available for asyncio.
 
 Coverage includes branches and has a 95% minimum. The GitHub Actions test job
-installs the same pinned environment, checks test formatting/lint, runs the suite,
+installs the same pinned environment, checks all Python formatting/lint and strict integration typing, runs the suite,
 and uploads `coverage.xml`. Config-flow and application-credentials coverage
 should remain at 100%.
 
@@ -42,22 +42,21 @@ should remain at 100%.
 | `test_sensor.py` | Counts, package attributes, delivery windows, polling failures/recovery, stale attribute removal. |
 | `test_auth.py` | Expired/rejected access-token refresh and refresh-token rejection. |
 | `test_api.py` | REST/GraphQL authentication, operations, JSON results, query errors. |
-| `test_known_issues.py` | Six desired behaviors currently broken in production. |
+| `test_known_issues.py` | Six regression tests for the defects fixed after the review. |
+| `test_validation.py` | Invalid responses, legacy identities, polling concurrency, diagnostics privacy, and migration safety. |
 
-The six known issues are secret logging, OAuth connection error handling, initial
-refresh retries, duplicate accounts, account identity during reauthentication,
-and nullable shipment status. They have `xfail(strict=True)` markers accepting
-only assertion failures. Unexpected passes fail the suite, requiring the marker
-to be removed when the implementation is fixed. Unexpected exception types are not suppressed. These tests do not make those behaviors compliant.
+All six previously expected failures are now ordinary passing regression tests.
+No tests are skipped or marked as expected failures.
 
-To see the failures without expected-failure handling:
+Run the same checks as CI:
 
 ```sh
-.venv/bin/python -m pytest tests/test_known_issues.py --runxfail --no-cov
+.venv/bin/ruff check custom_components tests
+.venv/bin/ruff format --check custom_components tests
+.venv/bin/mypy
+.venv/bin/python -m pytest --cov-report=xml
 ```
 
-To check coverage from passing tests alone:
-
-```sh
-.venv/bin/python -m pytest --ignore=tests/test_known_issues.py
-```
+The PostNL HTTP clients use Home Assistant's managed aiohttp session, explicit
+request deadlines, and bounded tracking concurrency. The fixtures mock the async
+service methods with AsyncMock while preserving the integration lifecycle.
