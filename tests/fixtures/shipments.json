@@ -1,0 +1,40 @@
+{
+  "trackedShipments": {
+    "receiverShipments": [
+      {
+        "key": "incoming-key",
+        "title": "Incoming parcel",
+        "barcode": "incoming-barcode",
+        "detailsUrl": "https://example.com/incoming",
+        "shipmentType": "Parcel",
+        "delivered": false,
+        "deliveredTimeStamp": null,
+        "deliveryAddressType": "Home",
+        "deliveryWindowFrom": "2026-10-15T10:00:00+02:00",
+        "deliveryWindowTo": "2026-10-15T16:00:00+02:00"
+      },
+      {
+        "key": "delivered-key",
+        "title": "Delivered parcel",
+        "barcode": "delivered-barcode",
+        "detailsUrl": "https://example.com/delivered",
+        "shipmentType": "Parcel",
+        "delivered": true,
+        "deliveredTimeStamp": "2026-10-14T11:00:00+02:00",
+        "deliveryAddressType": "Home"
+      }
+    ],
+    "senderShipments": [
+      {
+        "key": "outgoing-key",
+        "title": "Outgoing parcel",
+        "barcode": "outgoing-barcode",
+        "detailsUrl": "https://example.com/outgoing",
+        "shipmentType": "Parcel",
+        "delivered": true,
+        "deliveredTimeStamp": "2026-10-14T15:00:00+02:00",
+        "deliveryAddressType": "Home"
+      }
+    ]
+  }
+}

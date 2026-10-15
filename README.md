@@ -20,3 +20,7 @@ There are currently two options:
 
 - https://github.com/peternijssen/lovelace-postnl-card - the repository is archived, however you can still use the lovelace.
 - https://github.com/jimz011/hki-postnl-card
+
+## Development tests
+
+See [tests/README.md](tests/README.md) for the Home Assistant test setup, coverage checks, and known regression tests.

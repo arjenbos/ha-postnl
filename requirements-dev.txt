@@ -1,2 +1,3 @@
-homeassistant
-gql
+pytest-homeassistant-custom-component==0.13.287
+gql[requests]==4.0.0
+ruff==0.15.13
