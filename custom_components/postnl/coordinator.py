@@ -100,11 +100,13 @@ class PostNLCoordinator(DataUpdateCoordinator):
                 if colli.get('routeInformation'):
                     route_information = colli.get('routeInformation')
                     planned_date = route_information.get('plannedDeliveryTime')
-                    planned_from = route_information.get('plannedDeliveryTimeWindow', {}).get('startDateTime')
-                    planned_to = route_information.get('plannedDeliveryTimeWindow', {}).get('endDateTime')
+                    planned_window = route_information.get('plannedDeliveryTimeWindow') or {}
+                    planned_from = planned_window.get('startDateTime')
+                    planned_to = planned_window.get('endDateTime')
                     expected_datetime = route_information.get('expectedDeliveryTime')
-                    expected_from = route_information.get('expectedDeliveryTimeWindow', {}).get('startDateTime')
-                    expected_to = route_information.get('expectedDeliveryTimeWindow', {}).get('endDateTime')
+                    expected_window = route_information.get('expectedDeliveryTimeWindow') or {}
+                    expected_from = expected_window.get('startDateTime')
+                    expected_to = expected_window.get('endDateTime')
                     last_update = route_information.get('lastUpdate')
                 elif colli.get('eta'):
                     planned_date = colli.get('eta', {}).get('start')
