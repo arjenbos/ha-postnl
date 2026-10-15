@@ -1,18 +1,24 @@
 # Testing the PostNL integration
 
-Install the test dependencies with Python 3.13:
+Install the test dependencies with Python 3.14.2 or newer:
 
 ```sh
-python3.13 -m venv .venv
+python3.14 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest
 ```
 
-`pytest-homeassistant-custom-component==0.13.287` supplies Home Assistant's test
-fixtures and pins Home Assistant to 2025.10.2. This deliberately reproduces the
-existing development environment; it does not certify compatibility with newer
-Home Assistant releases. Upgrade the test plugin and its matching Python version
-together when updating the supported Home Assistant baseline.
+`pytest-homeassistant-custom-component==0.13.371` supplies Home Assistant's test
+fixtures for Home Assistant 2026.10.0. Both packages are pinned in
+`requirements-dev.txt`; CI uses Python 3.14. Upgrade the test plugin and its
+matching Python version together when updating the Home Assistant baseline.
+
+When upgrading an existing Python 3.13 environment, recreate it first:
+
+```sh
+python3.14 -m venv --clear .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+```
 
 Tests follow the [Home Assistant integration testing guidance](https://developers.home-assistant.io/docs/development_testing/):
 use `hass`, `MockConfigEntry`, the flow/config-entry managers, state machine, and

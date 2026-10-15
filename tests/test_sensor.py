@@ -13,6 +13,8 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
+from .helpers import sensor_entity_id
+
 
 async def setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> None:
     """Set up the entry and wait for platform tasks."""
@@ -34,8 +36,8 @@ async def test_package_sensors(
 ) -> None:
     """Expose incoming/outgoing counts and the package-card attribute contract."""
     await setup_entry(hass, config_entry)
-    incoming = hass.states.get("sensor.postnl_delivery")
-    outgoing = hass.states.get("sensor.postnl_distribution")
+    incoming = hass.states.get(sensor_entity_id(hass, "delivery"))
+    outgoing = hass.states.get(sensor_entity_id(hass, "distribution"))
     assert incoming.state == "1"
     assert outgoing.state == "0"
     assert incoming.attributes["unit_of_measurement"] == "packages"
@@ -67,13 +69,15 @@ async def test_poll_failure_and_recovery(
     endpoint.side_effect = requests.ConnectionError("offline")
     freezer.tick(timedelta(seconds=100))
     await poll(hass)
-    assert hass.states.get("sensor.postnl_delivery").state == "unavailable"
-    assert hass.states.get("sensor.postnl_distribution").state == "unavailable"
+    assert hass.states.get(sensor_entity_id(hass, "delivery")).state == "unavailable"
+    assert (
+        hass.states.get(sensor_entity_id(hass, "distribution")).state == "unavailable"
+    )
     endpoint.side_effect = original
     freezer.tick(timedelta(seconds=100))
     await poll(hass)
-    assert hass.states.get("sensor.postnl_delivery").state == "1"
-    assert hass.states.get("sensor.postnl_distribution").state == "0"
+    assert hass.states.get(sensor_entity_id(hass, "delivery")).state == "1"
+    assert hass.states.get(sensor_entity_id(hass, "distribution")).state == "0"
 
 
 async def test_delivered_update_clears_old_attributes(
@@ -89,14 +93,14 @@ async def test_delivered_update_clears_old_attributes(
     shipments["trackedShipments"]["receiverShipments"][0]["delivered"] = True
     freezer.tick(timedelta(seconds=100))
     await poll(hass)
-    state = hass.states.get("sensor.postnl_delivery")
+    state = hass.states.get(sensor_entity_id(hass, "delivery"))
     assert state.state == "0"
     assert state.attributes["enroute"] == []
     assert len(state.attributes["delivered"]) == 2
     shipments["trackedShipments"]["receiverShipments"] = []
     freezer.tick(timedelta(seconds=100))
     await poll(hass)
-    state = hass.states.get("sensor.postnl_delivery")
+    state = hass.states.get(sensor_entity_id(hass, "delivery"))
     assert state.attributes["delivered"] == []
     assert state.attributes["enroute"] == []
 
@@ -150,6 +154,8 @@ async def test_tracking_delivery_windows(
     """Expose route information and fall back to shipment delivery windows."""
     mock_api.tracking.return_value = {"colli": {"incoming-barcode": colli}}
     await setup_entry(hass, config_entry)
-    package = hass.states.get("sensor.postnl_delivery").attributes["enroute"][0]
+    package = hass.states.get(sensor_entity_id(hass, "delivery")).attributes["enroute"][
+        0
+    ]
     for key, value in expected.items():
         assert package[key] == value

@@ -3,8 +3,18 @@
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.postnl.const import DOMAIN, POSTNL_REDIRECT_URI
+
+
+def sensor_entity_id(hass: HomeAssistant, suffix: str) -> str:
+    """Find a sensor by stable identity rather than Core's generated name."""
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"test-account_{suffix}"
+    )
+    assert entity_id is not None
+    return entity_id
 
 
 async def start_oauth(hass: HomeAssistant, result: dict | None = None) -> dict:

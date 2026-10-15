@@ -20,7 +20,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.postnl.const import DOMAIN, POSTNL_TOKEN_URL
 
-from .helpers import finish_oauth, start_oauth
+from .helpers import finish_oauth, sensor_entity_id, start_oauth
 
 
 @pytest.mark.xfail(
@@ -155,7 +155,7 @@ async def test_null_status_uses_unknown_fallback(
     }
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
-    state = hass.states.get("sensor.postnl_delivery")
+    state = hass.states.get(sensor_entity_id(hass, "delivery"))
     assert state is not None
     assert state.state == "1"
     assert state.attributes["enroute"][0]["status_message"] == "Unknown"

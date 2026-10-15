@@ -13,6 +13,8 @@ from urllib3.exceptions import MaxRetryError
 
 from custom_components.postnl.const import DOMAIN
 
+from .helpers import sensor_entity_id
+
 
 async def test_setup_and_unload(
     hass: HomeAssistant,
@@ -123,4 +125,4 @@ async def test_failed_unload_keeps_entry_loaded(
     ):
         assert not await hass.config_entries.async_unload(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.FAILED_UNLOAD
-    assert hass.states.get("sensor.postnl_delivery").state == "1"
+    assert hass.states.get(sensor_entity_id(hass, "delivery")).state == "1"
