@@ -4,14 +4,24 @@ import logging
 from typing import Any
 
 from aiohttp import ClientError
+import probatio
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.core import callback
 from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .account import Account, entry_account_id
 from .api import PostNLAuthenticationError, PostNLDataError, PostNLError
-from .const import DOMAIN
+from .const import (
+    CONF_DELIVERED_RETENTION_DAYS,
+    DEFAULT_DELIVERED_RETENTION_DAYS,
+    DOMAIN,
+)
 from .login_api import PostNLLoginAPI
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +34,12 @@ class OAuth2FlowHandler(
 
     DOMAIN = DOMAIN
     reauth_entry: ConfigEntry | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> PostNLOptionsFlow:
+        """Expose account-specific parcel retention settings."""
+        return PostNLOptionsFlow()
 
     @property
     def logger(self) -> logging.Logger:
@@ -80,3 +96,28 @@ class OAuth2FlowHandler(
         ):
             return self.async_abort(reason="already_configured")
         return self.async_create_entry(title=account.email or "PostNL", data=data)
+
+
+class PostNLOptionsFlow(OptionsFlowWithReload):
+    """Manage delivered parcel visibility and reload on changes."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the number of days to display delivered parcels."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=probatio.Schema(
+                {
+                    probatio.Required(
+                        CONF_DELIVERED_RETENTION_DAYS,
+                        default=self.config_entry.options.get(
+                            CONF_DELIVERED_RETENTION_DAYS,
+                            DEFAULT_DELIVERED_RETENTION_DAYS,
+                        ),
+                    ): probatio.All(int, probatio.Range(min=0, max=3650)),
+                }
+            ),
+        )
