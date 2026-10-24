@@ -20,7 +20,7 @@ from custom_components.postnl.const import (
 )
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 
 from .helpers import finish_oauth, start_oauth
 
@@ -189,3 +189,31 @@ async def test_invalid_token_json(
     result = await finish_oauth(hass, await start_oauth(hass))
     assert result["reason"] == "oauth_failed"
     assert not hass.config_entries.async_entries(DOMAIN)
+
+
+async def test_retention_options(
+    hass: HomeAssistant,
+    application_credentials: None,
+    config_entry: MockConfigEntry,
+) -> None:
+    """Validate options, persist retention, reload, and show the saved value."""
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["data_schema"]({}) == {"delivered_retention_days": 0}
+    for invalid in (-1, 3651, "seven", 1.5):
+        with pytest.raises(InvalidData):
+            await hass.config_entries.options.async_configure(
+                result["flow_id"], {"delivered_retention_days": invalid}
+            )
+    previous = config_entry.runtime_data
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"delivered_retention_days": 7}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert config_entry.options == {"delivered_retention_days": 7}
+    assert config_entry.runtime_data is not previous
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["data_schema"]({}) == {"delivered_retention_days": 7}

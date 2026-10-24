@@ -61,5 +61,18 @@
     "already_configured": {
       "message": "This PostNL account is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Parcel retention",
+        "data": {
+          "delivered_retention_days": "Delivered parcel retention (days)"
+        },
+        "data_description": {
+          "delivered_retention_days": "Show delivered parcels for this many days (0\u20133650). Set 0 to keep all parcels returned by PostNL. Parcels without a valid delivery timestamp remain visible."
+        }
+      }
+    }
   }
 }

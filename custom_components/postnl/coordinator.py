@@ -56,7 +56,8 @@ class PostNLCoordinator(DataUpdateCoordinator[dict[str, list[Package]]]):
             config_entry=entry,
             name="PostNL",
             update_interval=timedelta(seconds=90),
-            always_update=False,
+            # Time-based retention must expire even when upstream data is unchanged.
+            always_update=True,
         )
         self.auth = auth
         self.account = account

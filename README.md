@@ -15,6 +15,22 @@ existing package-card structure. Existing account-based unique IDs and registere
 entity IDs are preserved; new sensors use the account device name and translated
 sensor names. Use your actual entity IDs in dashboards and automations.
 
+The `enroute` and `delivered` lists remain available to dashboards and automations,
+but are excluded from recorder history to avoid Home Assistant's 16 KiB attribute
+limit and excessive database growth. Package counts are still recorded.
+
+To limit delivered parcels shown in attributes, open **Settings → Devices &
+services → PostNL → Configure** and set **Delivered parcel retention (days)**.
+For example, `7` shows parcels delivered within the last seven days. The default,
+`0`, keeps all parcels returned by PostNL; values up to `3650` are supported.
+This applies to both sensors and never removes parcels still in transit. Parcels
+with missing or invalid delivery timestamps remain visible. Changes apply after
+the integration automatically reloads; parcels expire on the next successful poll.
+
+Optional package fields without a value are omitted from the attributes. Custom
+cards and templates should handle missing keys (for example, use `.get()` or
+Jinja's `default` filter) instead of relying on explicit `null` values.
+
 ## Installation
 
 1. Install the [PostNL browser extension](https://github.com/arjenbos/ha-postnl-browser-extensions).
