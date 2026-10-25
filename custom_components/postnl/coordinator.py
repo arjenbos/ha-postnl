@@ -66,10 +66,12 @@ class PostNLCoordinator(DataUpdateCoordinator[dict[str, list[Package]]]):
 
     async def _async_update_data(self) -> dict[str, list[Package]]:
         """Fetch a complete snapshot or let the coordinator report one failure."""
+        stage = "token validation"
         try:
             async with asyncio.timeout(60):
                 await self.auth.check_and_refresh_token()
                 self.jouw_api.access_token = self.auth.access_token
+                stage = "shipment list"
                 shipments = await self.auth.graphql.shipments()
                 if "trackedShipments" not in shipments:
                     raise PostNLDataError("PostNL did not return shipment data")
@@ -85,6 +87,7 @@ class PostNLCoordinator(DataUpdateCoordinator[dict[str, list[Package]]]):
                         raise PostNLDataError(
                             "PostNL returned an invalid shipment list"
                         )
+                    stage = f"{role} shipment details"
                     results = await asyncio.gather(
                         *(self.transform_shipment(item) for item in items),
                         return_exceptions=True,
@@ -106,9 +109,13 @@ class PostNLCoordinator(DataUpdateCoordinator[dict[str, list[Package]]]):
                 translation_domain="postnl", translation_key="invalid_auth"
             ) from err
         except (PostNLError, ClientError, TimeoutError) as err:
+            # Client exception strings can contain tracking URLs or credentials.
+            reason = str(err) if isinstance(err, PostNLError) else type(err).__name__
             raise UpdateFailed(
-                translation_domain="postnl", translation_key="cannot_connect"
-            ) from err
+                translation_domain="postnl",
+                translation_key="cannot_connect",
+                translation_placeholders={"reason": f"{stage}: {reason}"},
+            ) from None
 
     async def transform_shipment(self, shipment: JsonObject) -> Package:
         """Normalize optional tracking details into the package-card contract."""

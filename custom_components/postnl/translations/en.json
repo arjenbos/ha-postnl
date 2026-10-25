@@ -53,7 +53,7 @@
       "message": "PostNL authentication expired or was rejected. Sign in again."
     },
     "cannot_connect": {
-      "message": "Unable to retrieve valid data from PostNL."
+      "message": "Unable to retrieve valid data from PostNL: {reason}"
     },
     "wrong_account": {
       "message": "The credentials belong to a different PostNL account."

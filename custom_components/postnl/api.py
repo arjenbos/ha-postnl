@@ -47,6 +47,10 @@ class PostNLAPI:
             ) as response:
                 if response.status in (401, 403):
                     raise PostNLAuthenticationError("PostNL rejected authentication")
+                if response.status >= 400:
+                    raise PostNLConnectionError(
+                        f"PostNL returned HTTP {response.status}"
+                    )
                 response.raise_for_status()
                 payload = await response.json()
         except (ClientError, TimeoutError) as err:

@@ -125,3 +125,21 @@ async def test_null_status_uses_unknown_fallback(
     assert state is not None
     assert state.state == "1"
     assert state.attributes["enroute"][0]["status_message"] == "Unknown"
+
+
+@pytest.mark.parametrize("tracking", [False, True])
+async def test_fetch_failure_identifies_stage_without_private_url(
+    hass: HomeAssistant,
+    application_credentials: None,
+    config_entry: MockConfigEntry,
+    mock_api: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+    tracking: bool,
+) -> None:
+    """Identify the failing operation without logging transport exception URLs."""
+    operation = mock_api.tracking if tracking else mock_api.shipments
+    operation.side_effect = ClientConnectionError("https://private-parcel/token")
+    assert not await hass.config_entries.async_setup(config_entry.entry_id)
+    stage = "receiver shipment details" if tracking else "shipment list"
+    assert f"{stage}: ClientConnectionError" in caplog.text
+    assert "private-parcel" not in caplog.text
